@@ -67,9 +67,9 @@ const Index = () => {
     canvas.width = width;
     canvas.height = height;
 
-    // Image takes 56.25% of width (height in a 16:9 = 1080, so square = 1080x1080)
-    const imageWidth = height; // 1080 for square
-    const textAreaWidth = width - imageWidth;
+    // Image takes exactly half the width
+    const imageWidth = width / 2; // 960px
+    const textAreaWidth = width / 2; // 960px
 
     // Draw background
     ctx.fillStyle = "#faf8f5"; // Light cream background
