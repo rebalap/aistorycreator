@@ -40,25 +40,27 @@ export function StoryPagePreview({
           </div>
         ) : hasContent ? (
           <div className="flex h-full">
-            {/* Left side - Image */}
-            <div className="w-1/2 h-full bg-muted/30 flex items-center justify-center p-4">
+            {/* Left side - Image (56.25% for 1:1 square in 16:9 container) */}
+            <div className="w-[56.25%] h-full bg-muted/30 flex-shrink-0">
               {image ? (
                 <img
                   src={image}
                   alt="Story illustration"
-                  className="max-w-full max-h-full object-contain rounded-lg shadow-md"
+                  className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="text-center text-muted-foreground">
-                  <BookOpen className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Image will appear here</p>
+                <div className="w-full h-full flex items-center justify-center text-center text-muted-foreground">
+                  <div>
+                    <BookOpen className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Image will appear here</p>
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Right side - Text */}
-            <div className="w-1/2 h-full flex items-center justify-center p-6 md:p-8">
-              <p className="text-lg md:text-xl lg:text-2xl font-serif text-foreground leading-relaxed text-center">
+            {/* Right side - Text (43.75% remaining) */}
+            <div className="flex-1 h-full flex items-center justify-center p-4 md:p-6 lg:p-8">
+              <p className="text-sm md:text-lg lg:text-xl font-serif text-foreground leading-relaxed text-center">
                 {text || "Your story text will appear here..."}
               </p>
             </div>

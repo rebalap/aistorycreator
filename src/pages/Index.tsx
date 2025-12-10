@@ -54,16 +54,88 @@ const Index = () => {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!generatedImage) return;
 
-    const link = document.createElement("a");
-    link.href = generatedImage;
-    link.download = `story-page-${Date.now()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("Image downloaded!");
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // 16:9 dimensions
+    const width = 1920;
+    const height = 1080;
+    canvas.width = width;
+    canvas.height = height;
+
+    // Image takes 56.25% of width (height in a 16:9 = 1080, so square = 1080x1080)
+    const imageWidth = height; // 1080 for square
+    const textAreaWidth = width - imageWidth;
+
+    // Draw background
+    ctx.fillStyle = "#faf8f5"; // Light cream background
+    ctx.fillRect(0, 0, width, height);
+
+    // Load and draw the generated image
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    
+    img.onload = () => {
+      // Draw image on left (square, covering full height)
+      ctx.drawImage(img, 0, 0, imageWidth, height);
+
+      // Draw text area background
+      ctx.fillStyle = "#faf8f5";
+      ctx.fillRect(imageWidth, 0, textAreaWidth, height);
+
+      // Draw story text
+      ctx.fillStyle = "#1a1a1a";
+      ctx.font = "bold 48px Georgia, serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      // Word wrap the text
+      const maxWidth = textAreaWidth - 80;
+      const lineHeight = 64;
+      const words = storyText.split(" ");
+      const lines: string[] = [];
+      let currentLine = "";
+
+      for (const word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxWidth && currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+
+      // Center text vertically
+      const totalTextHeight = lines.length * lineHeight;
+      const startY = (height - totalTextHeight) / 2 + lineHeight / 2;
+      const centerX = imageWidth + textAreaWidth / 2;
+
+      lines.forEach((line, index) => {
+        ctx.fillText(line, centerX, startY + index * lineHeight);
+      });
+
+      // Download
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL("image/png");
+      link.download = `story-page-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Story page downloaded!");
+    };
+
+    img.onerror = () => {
+      toast.error("Failed to download. Try again.");
+    };
+
+    img.src = generatedImage;
   };
 
   const handleReset = () => {
