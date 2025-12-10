@@ -31,11 +31,12 @@ serve(async (req) => {
 
     // Build the prompt for image generation
     let prompt = `Create a children's book illustration in a square 1:1 aspect ratio that matches the art style, color palette, and illustration technique of the provided character image. `;
-    prompt += `The scene should depict: "${storyText}". `;
+    prompt += `The scene should visually depict: "${storyText}". `;
+    prompt += `IMPORTANT: Do NOT include any text, words, letters, or captions in the image. The image should be purely visual with no written text whatsoever. `;
     prompt += `The illustration should be in the same whimsical, storybook style as the character reference. `;
     prompt += `Use similar colors, line work, and artistic techniques. `;
     prompt += `The image should be suitable for a children's story book page. `;
-    prompt += `Make it warm, inviting, and magical. Output the image in square format.`;
+    prompt += `Make it warm, inviting, and magical. Output the image in square format with no text.`;
 
     if (backgroundImages && backgroundImages.length > 0) {
       prompt += ` Also use the provided background reference images to guide the environment, scenery, and color palette.`;
