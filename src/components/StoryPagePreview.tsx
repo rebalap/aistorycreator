@@ -40,8 +40,8 @@ export function StoryPagePreview({
           </div>
         ) : hasContent ? (
           <div className="flex h-full">
-            {/* Left side - Image (56.25% for 1:1 square in 16:9 container) */}
-            <div className="w-[56.25%] h-full bg-muted/30 flex-shrink-0">
+            {/* Left side - Image (50% of width) */}
+            <div className="w-1/2 h-full bg-muted/30 flex-shrink-0">
               {image ? (
                 <img
                   src={image}
