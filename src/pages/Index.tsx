@@ -12,6 +12,7 @@ const Index = () => {
   const [backgroundImages, setBackgroundImages] = useState<string[]>([]);
   const [storyText, setStoryText] = useState("");
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEditingImage, setIsEditingImage] = useState(false);
 
@@ -27,6 +28,7 @@ const Index = () => {
 
     setIsGenerating(true);
     setGeneratedImage(null);
+    setPendingImage(null);
 
     try {
       const { data, error } = await supabase.functions.invoke("generate-story-page", {
@@ -73,8 +75,8 @@ const Index = () => {
       }
 
       if (data?.image) {
-        setGeneratedImage(data.image);
-        toast.success("Image edited successfully!");
+        setPendingImage(data.image);
+        toast.success("Edit complete! Compare and choose.");
       } else {
         throw new Error("No edited image received");
       }
@@ -84,6 +86,19 @@ const Index = () => {
     } finally {
       setIsEditingImage(false);
     }
+  };
+
+  const handleAcceptImage = () => {
+    if (pendingImage) {
+      setGeneratedImage(pendingImage);
+      setPendingImage(null);
+      toast.success("New image accepted!");
+    }
+  };
+
+  const handleDiscardImage = () => {
+    setPendingImage(null);
+    toast.info("Edit discarded, keeping original.");
   };
 
   const handleDownload = async () => {
@@ -165,6 +180,7 @@ const Index = () => {
     setBackgroundImages([]);
     setStoryText("");
     setGeneratedImage(null);
+    setPendingImage(null);
   };
 
   return (
@@ -226,7 +242,7 @@ const Index = () => {
 
             <Button
               onClick={handleGenerate}
-              disabled={isGenerating || isEditingImage || characterImages.length === 0 || !storyText.trim()}
+              disabled={isGenerating || isEditingImage || pendingImage !== null || characterImages.length === 0 || !storyText.trim()}
               className="w-full h-12 text-base font-medium"
               size="lg"
             >
@@ -247,14 +263,17 @@ const Index = () => {
           <div className="space-y-6">
             <StoryPagePreview
               image={generatedImage}
+              pendingImage={pendingImage}
               text={storyText}
               isLoading={isGenerating}
               isEditingImage={isEditingImage}
-              onEditImage={generatedImage ? handleEditImage : undefined}
+              onEditImage={generatedImage && !pendingImage ? handleEditImage : undefined}
+              onAcceptImage={handleAcceptImage}
+              onDiscardImage={handleDiscardImage}
               onTextChange={setStoryText}
             />
 
-            {generatedImage && (
+            {generatedImage && !pendingImage && (
               <Button
                 onClick={handleDownload}
                 variant="outline"
