@@ -202,7 +202,31 @@ const Index = () => {
     img.crossOrigin = "anonymous";
 
     img.onload = () => {
-      ctx.drawImage(img, 0, 0, imageWidth, height);
+      // Implement object-cover behavior to maintain aspect ratio
+      const targetWidth = imageWidth;
+      const targetHeight = height;
+      const sourceWidth = img.naturalWidth;
+      const sourceHeight = img.naturalHeight;
+
+      // Calculate scale to cover (use the larger scale)
+      const scaleX = targetWidth / sourceWidth;
+      const scaleY = targetHeight / sourceHeight;
+      const scale = Math.max(scaleX, scaleY);
+
+      // Calculate dimensions of the visible area in source image coordinates
+      const visibleWidth = targetWidth / scale;
+      const visibleHeight = targetHeight / scale;
+
+      // Calculate the crop offset to center the image
+      const offsetX = (sourceWidth - visibleWidth) / 2;
+      const offsetY = (sourceHeight - visibleHeight) / 2;
+
+      // Draw with 9-parameter version: source crop -> destination placement
+      ctx.drawImage(
+        img,
+        offsetX, offsetY, visibleWidth, visibleHeight,  // Source crop area
+        0, 0, targetWidth, targetHeight                  // Destination area
+      );
 
       ctx.fillStyle = "#faf8f5";
       ctx.fillRect(imageWidth, 0, textAreaWidth, height);
