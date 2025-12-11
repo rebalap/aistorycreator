@@ -180,102 +180,149 @@ const Index = () => {
     updateCurrentPage({ text: newText });
   };
 
+  const renderPageToBlob = (page: StoryPage): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      if (!page.image) {
+        resolve(null);
+        return;
+      }
+
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(null);
+        return;
+      }
+
+      const width = 1920;
+      const height = 1080;
+      canvas.width = width;
+      canvas.height = height;
+
+      const imageWidth = width / 2;
+      const textAreaWidth = width / 2;
+
+      ctx.fillStyle = "#faf8f5";
+      ctx.fillRect(0, 0, width, height);
+
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+
+      img.onload = () => {
+        const targetWidth = imageWidth;
+        const targetHeight = height;
+        const sourceWidth = img.naturalWidth;
+        const sourceHeight = img.naturalHeight;
+
+        const scaleX = targetWidth / sourceWidth;
+        const scaleY = targetHeight / sourceHeight;
+        const scale = Math.max(scaleX, scaleY);
+
+        const visibleWidth = targetWidth / scale;
+        const visibleHeight = targetHeight / scale;
+
+        const offsetX = (sourceWidth - visibleWidth) / 2;
+        const offsetY = (sourceHeight - visibleHeight) / 2;
+
+        ctx.drawImage(
+          img,
+          offsetX, offsetY, visibleWidth, visibleHeight,
+          0, 0, targetWidth, targetHeight
+        );
+
+        ctx.fillStyle = "#faf8f5";
+        ctx.fillRect(imageWidth, 0, textAreaWidth, height);
+
+        ctx.fillStyle = "#1a1a1a";
+        ctx.font = "bold 48px Georgia, serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        const maxWidth = textAreaWidth - 80;
+        const lineHeight = 64;
+        const words = page.text.split(" ");
+        const lines: string[] = [];
+        let currentLine = "";
+
+        for (const word of words) {
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          const metrics = ctx.measureText(testLine);
+          if (metrics.width > maxWidth && currentLine) {
+            lines.push(currentLine);
+            currentLine = word;
+          } else {
+            currentLine = testLine;
+          }
+        }
+        if (currentLine) lines.push(currentLine);
+
+        const totalTextHeight = lines.length * lineHeight;
+        const startY = (height - totalTextHeight) / 2 + lineHeight / 2;
+        const centerX = imageWidth + textAreaWidth / 2;
+
+        lines.forEach((line, index) => {
+          ctx.fillText(line, centerX, startY + index * lineHeight);
+        });
+
+        canvas.toBlob((blob) => resolve(blob), "image/png");
+      };
+
+      img.onerror = () => resolve(null);
+      img.src = page.image;
+    });
+  };
+
   const handleDownload = async () => {
     if (!currentPage.image) return;
 
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const blob = await renderPageToBlob(currentPage);
+    if (!blob) {
+      toast.error("Failed to download. Try again.");
+      return;
+    }
 
-    const width = 1920;
-    const height = 1080;
-    canvas.width = width;
-    canvas.height = height;
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `story-page-${currentPage.pageNumber}-${Date.now()}.png`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    toast.success("Story page downloaded!");
+  };
 
-    const imageWidth = width / 2;
-    const textAreaWidth = width / 2;
+  const handleDownloadAll = async () => {
+    const pagesWithImages = pages.filter((page) => page.image);
+    if (pagesWithImages.length === 0) {
+      toast.error("No pages with images to download");
+      return;
+    }
 
-    ctx.fillStyle = "#faf8f5";
-    ctx.fillRect(0, 0, width, height);
+    const loadingToast = toast.loading(`Preparing ${pagesWithImages.length} pages...`);
 
-    const img = new Image();
-    img.crossOrigin = "anonymous";
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
 
-    img.onload = () => {
-      // Implement object-cover behavior to maintain aspect ratio
-      const targetWidth = imageWidth;
-      const targetHeight = height;
-      const sourceWidth = img.naturalWidth;
-      const sourceHeight = img.naturalHeight;
-
-      // Calculate scale to cover (use the larger scale)
-      const scaleX = targetWidth / sourceWidth;
-      const scaleY = targetHeight / sourceHeight;
-      const scale = Math.max(scaleX, scaleY);
-
-      // Calculate dimensions of the visible area in source image coordinates
-      const visibleWidth = targetWidth / scale;
-      const visibleHeight = targetHeight / scale;
-
-      // Calculate the crop offset to center the image
-      const offsetX = (sourceWidth - visibleWidth) / 2;
-      const offsetY = (sourceHeight - visibleHeight) / 2;
-
-      // Draw with 9-parameter version: source crop -> destination placement
-      ctx.drawImage(
-        img,
-        offsetX, offsetY, visibleWidth, visibleHeight,  // Source crop area
-        0, 0, targetWidth, targetHeight                  // Destination area
-      );
-
-      ctx.fillStyle = "#faf8f5";
-      ctx.fillRect(imageWidth, 0, textAreaWidth, height);
-
-      ctx.fillStyle = "#1a1a1a";
-      ctx.font = "bold 48px Georgia, serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-
-      const maxWidth = textAreaWidth - 80;
-      const lineHeight = 64;
-      const words = currentPage.text.split(" ");
-      const lines: string[] = [];
-      let currentLine = "";
-
-      for (const word of words) {
-        const testLine = currentLine ? `${currentLine} ${word}` : word;
-        const metrics = ctx.measureText(testLine);
-        if (metrics.width > maxWidth && currentLine) {
-          lines.push(currentLine);
-          currentLine = word;
-        } else {
-          currentLine = testLine;
+      for (const page of pagesWithImages) {
+        const blob = await renderPageToBlob(page);
+        if (blob) {
+          zip.file(`story-page-${page.pageNumber}.png`, blob);
         }
       }
-      if (currentLine) lines.push(currentLine);
 
-      const totalTextHeight = lines.length * lineHeight;
-      const startY = (height - totalTextHeight) / 2 + lineHeight / 2;
-      const centerX = imageWidth + textAreaWidth / 2;
-
-      lines.forEach((line, index) => {
-        ctx.fillText(line, centerX, startY + index * lineHeight);
-      });
+      const content = await zip.generateAsync({ type: "blob" });
 
       const link = document.createElement("a");
-      link.href = canvas.toDataURL("image/png");
-      link.download = `story-page-${currentPage.pageNumber}-${Date.now()}.png`;
-      document.body.appendChild(link);
+      link.href = URL.createObjectURL(content);
+      link.download = `my-story-${Date.now()}.zip`;
       link.click();
-      document.body.removeChild(link);
-      toast.success("Story page downloaded!");
-    };
+      URL.revokeObjectURL(link.href);
 
-    img.onerror = () => {
-      toast.error("Failed to download. Try again.");
-    };
-
-    img.src = currentPage.image;
+      toast.dismiss(loadingToast);
+      toast.success(`Downloaded ${pagesWithImages.length} pages!`);
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      toast.error("Failed to create ZIP file");
+    }
   };
 
   const handleReset = () => {
@@ -299,10 +346,21 @@ const Index = () => {
               <p className="text-xs text-muted-foreground">AI-powered multi-page stories</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handleReset}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Reset
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadAll}
+              disabled={pages.filter((p) => p.image).length === 0}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download All ({pages.filter((p) => p.image).length})
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleReset}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Reset
+            </Button>
+          </div>
         </div>
       </header>
 
