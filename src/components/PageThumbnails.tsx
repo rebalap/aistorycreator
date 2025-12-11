@@ -30,27 +30,21 @@ export function PageThumbnails({
   const canAddPage = pages.length < maxPages;
 
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn("space-y-2", className)}>
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
           <BookOpen className="w-4 h-4 text-primary" />
           Story Pages ({pages.length}/{maxPages})
         </h3>
-        {canAddPage && (
-          <Button variant="outline" size="sm" onClick={onAddPage}>
-            <Plus className="w-4 h-4 mr-1" />
-            Add Page
-          </Button>
-        )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
         {pages.map((page, index) => (
           <button
             key={page.id}
             onClick={() => onPageSelect(index)}
             className={cn(
-              "relative w-16 h-16 rounded-lg border-2 overflow-hidden transition-all",
+              "relative w-14 h-14 rounded-lg border-2 overflow-hidden transition-all flex-shrink-0",
               "hover:ring-2 hover:ring-primary/50",
               currentPageIndex === index
                 ? "border-primary ring-2 ring-primary/30"
@@ -80,11 +74,11 @@ export function PageThumbnails({
         ))}
 
         {/* Add page button inline */}
-        {canAddPage && pages.length > 0 && (
+        {canAddPage && (
           <button
             onClick={onAddPage}
             className={cn(
-              "w-16 h-16 rounded-lg border-2 border-dashed border-border",
+              "w-14 h-14 rounded-lg border-2 border-dashed border-border flex-shrink-0",
               "flex items-center justify-center",
               "hover:border-primary hover:bg-accent/50 transition-colors"
             )}

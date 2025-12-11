@@ -9,6 +9,7 @@ interface ImageUploaderProps {
   images: string[];
   onImagesChange: (images: string[]) => void;
   className?: string;
+  compact?: boolean;
 }
 
 export function ImageUploader({
@@ -18,6 +19,7 @@ export function ImageUploader({
   images,
   onImagesChange,
   className,
+  compact = false,
 }: ImageUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -72,6 +74,67 @@ export function ImageUploader({
     },
     [images, onImagesChange]
   );
+
+  if (compact) {
+    return (
+      <div className={cn("space-y-2", className)}>
+        <div>
+          <h3 className="text-sm font-medium text-foreground">{label}</h3>
+          {description && (
+            <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {images.map((image, index) => (
+            <div
+              key={index}
+              className="relative group rounded-lg overflow-hidden border border-border bg-card flex-shrink-0"
+            >
+              <img
+                src={image}
+                alt={`Upload ${index + 1}`}
+                className="w-14 h-14 object-cover"
+              />
+              <button
+                onClick={() => removeImage(index)}
+                className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </div>
+          ))}
+
+          {(multiple || images.length === 0) && (
+            <label
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              className={cn(
+                "flex items-center justify-center w-14 h-14 border-2 border-dashed rounded-lg cursor-pointer transition-all duration-200 flex-shrink-0",
+                isDragging
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-primary/50 hover:bg-accent/50"
+              )}
+            >
+              {isDragging ? (
+                <ImageIcon className="w-5 h-5 text-primary" />
+              ) : (
+                <Upload className="w-5 h-5 text-muted-foreground" />
+              )}
+              <input
+                type="file"
+                className="hidden"
+                accept="image/*"
+                multiple={multiple}
+                onChange={(e) => handleFileSelect(e.target.files)}
+              />
+            </label>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("space-y-3", className)}>
