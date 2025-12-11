@@ -83,7 +83,7 @@ export function StoryPagePreview({
           <div className="flex h-full">
             {/* Left side - Image (50% of width) */}
             <div 
-              className="w-1/2 h-full bg-muted/30 flex-shrink-0 relative"
+              className="w-1/2 h-full flex-shrink-0 relative overflow-hidden"
               onMouseEnter={() => setIsHoveringImage(true)}
               onMouseLeave={() => setIsHoveringImage(false)}
             >
