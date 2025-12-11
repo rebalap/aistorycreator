@@ -2,7 +2,6 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { BookOpen, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 interface StoryPagePreviewProps {
@@ -155,15 +154,19 @@ export function StoryPagePreview({
                   {(isHoveringImage || showImageEditInput) && onEditImage && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center transition-opacity">
                       {showImageEditInput ? (
-                        <div className="p-4 w-full max-w-xs space-y-2">
-                          <Input
+                        <div className="p-4 w-full max-w-sm space-y-2">
+                          <Textarea
                             value={imageEditPrompt}
                             onChange={(e) => setImageEditPrompt(e.target.value)}
-                            placeholder="e.g., use character from page 1..."
-                            className="bg-background text-foreground"
+                            placeholder="Describe your edit... (Ctrl+Enter to apply)"
+                            className="bg-background text-foreground resize-none"
+                            rows={3}
                             autoFocus
                             onKeyDown={(e) => {
-                              if (e.key === "Enter") handleImageEditSubmit();
+                              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                                e.preventDefault();
+                                handleImageEditSubmit();
+                              }
                               if (e.key === "Escape") {
                                 setShowImageEditInput(false);
                                 setImageEditPrompt("");
