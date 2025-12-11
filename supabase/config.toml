@@ -2,3 +2,6 @@ project_id = "qrkvyvtarmsfwbmvjvzy"
 
 [functions.generate-story-page]
 verify_jwt = false
+
+[functions.edit-story-image]
+verify_jwt = false
