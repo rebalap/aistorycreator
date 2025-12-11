@@ -13,6 +13,7 @@ const Index = () => {
   const [storyText, setStoryText] = useState("");
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isEditingImage, setIsEditingImage] = useState(false);
 
   const handleGenerate = async () => {
     if (characterImages.length === 0) {
@@ -54,6 +55,37 @@ const Index = () => {
     }
   };
 
+  const handleEditImage = async (editPrompt: string) => {
+    if (!generatedImage) return;
+
+    setIsEditingImage(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("edit-story-image", {
+        body: {
+          currentImage: generatedImage,
+          editPrompt: editPrompt,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Failed to edit image");
+      }
+
+      if (data?.image) {
+        setGeneratedImage(data.image);
+        toast.success("Image edited successfully!");
+      } else {
+        throw new Error("No edited image received");
+      }
+    } catch (error: any) {
+      console.error("Edit error:", error);
+      toast.error(error.message || "Failed to edit image. Please try again.");
+    } finally {
+      setIsEditingImage(false);
+    }
+  };
+
   const handleDownload = async () => {
     if (!generatedImage) return;
 
@@ -61,39 +93,31 @@ const Index = () => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // 16:9 dimensions
     const width = 1920;
     const height = 1080;
     canvas.width = width;
     canvas.height = height;
 
-    // Image takes exactly half the width
-    const imageWidth = width / 2; // 960px
-    const textAreaWidth = width / 2; // 960px
+    const imageWidth = width / 2;
+    const textAreaWidth = width / 2;
 
-    // Draw background
-    ctx.fillStyle = "#faf8f5"; // Light cream background
+    ctx.fillStyle = "#faf8f5";
     ctx.fillRect(0, 0, width, height);
 
-    // Load and draw the generated image
     const img = new Image();
     img.crossOrigin = "anonymous";
     
     img.onload = () => {
-      // Draw image on left (square, covering full height)
       ctx.drawImage(img, 0, 0, imageWidth, height);
 
-      // Draw text area background
       ctx.fillStyle = "#faf8f5";
       ctx.fillRect(imageWidth, 0, textAreaWidth, height);
 
-      // Draw story text
       ctx.fillStyle = "#1a1a1a";
       ctx.font = "bold 48px Georgia, serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
 
-      // Word wrap the text
       const maxWidth = textAreaWidth - 80;
       const lineHeight = 64;
       const words = storyText.split(" ");
@@ -112,7 +136,6 @@ const Index = () => {
       }
       if (currentLine) lines.push(currentLine);
 
-      // Center text vertically
       const totalTextHeight = lines.length * lineHeight;
       const startY = (height - totalTextHeight) / 2 + lineHeight / 2;
       const centerX = imageWidth + textAreaWidth / 2;
@@ -121,7 +144,6 @@ const Index = () => {
         ctx.fillText(line, centerX, startY + index * lineHeight);
       });
 
-      // Download
       const link = document.createElement("a");
       link.href = canvas.toDataURL("image/png");
       link.download = `story-page-${Date.now()}.png`;
@@ -147,7 +169,6 @@ const Index = () => {
 
   return (
     <main className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -168,7 +189,6 @@ const Index = () => {
 
       <div className="container mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-2 gap-8">
-          {/* Left Column - Inputs */}
           <div className="space-y-6">
             <div className="bg-card rounded-xl p-6 border border-border shadow-sm">
               <ImageUploader
@@ -206,7 +226,7 @@ const Index = () => {
 
             <Button
               onClick={handleGenerate}
-              disabled={isGenerating || characterImages.length === 0 || !storyText.trim()}
+              disabled={isGenerating || isEditingImage || characterImages.length === 0 || !storyText.trim()}
               className="w-full h-12 text-base font-medium"
               size="lg"
             >
@@ -224,12 +244,14 @@ const Index = () => {
             </Button>
           </div>
 
-          {/* Right Column - Preview */}
           <div className="space-y-6">
             <StoryPagePreview
               image={generatedImage}
               text={storyText}
               isLoading={isGenerating}
+              isEditingImage={isEditingImage}
+              onEditImage={generatedImage ? handleEditImage : undefined}
+              onTextChange={setStoryText}
             />
 
             {generatedImage && (
@@ -238,6 +260,7 @@ const Index = () => {
                 variant="outline"
                 className="w-full"
                 size="lg"
+                disabled={isEditingImage}
               >
                 <Download className="w-5 h-5 mr-2" />
                 Download Story Page
