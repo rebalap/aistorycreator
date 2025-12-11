@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { characterImage, backgroundImages, storyText } = await req.json();
+    const { characterImage, backgroundImages, storyText, previousImages, pageNumber, totalPages } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -27,12 +27,18 @@ serve(async (req) => {
       throw new Error("Story text is required");
     }
 
-    console.log("Generating story page with text:", storyText.substring(0, 100) + "...");
+    console.log(`Generating story page ${pageNumber || 1} with text:`, storyText.substring(0, 100) + "...");
 
-    // Build the prompt for image generation
+    // Build the prompt for image generation with character consistency
     let prompt = `Create a children's book illustration in a square 1:1 aspect ratio that matches the art style, color palette, and illustration technique of the provided character image. `;
+    
+    // Add character consistency instructions if there are previous pages
+    if (previousImages && previousImages.length > 0) {
+      prompt += `CRITICAL: This is page ${pageNumber} of a multi-page story. The main character(s) MUST look EXACTLY the same as in the previous page images provided - same appearance, clothing, colors, proportions, and art style. Maintain absolute character consistency throughout the story. `;
+    }
+    
     prompt += `The scene should visually depict: "${storyText}". `;
-    prompt += `IMPORTANT: Do NOT include any text, words, letters, or captions in the image. The image should be purely visual with no written text whatsoever. `;
+    prompt += `IMPORTANT: Do NOT include any text, words, letters, numbers, or captions in the image. The image should be purely visual with no written text whatsoever. `;
     prompt += `The illustration should be in the same whimsical, storybook style as the character reference. `;
     prompt += `Use similar colors, line work, and artistic techniques. `;
     prompt += `The image should be suitable for a children's story book page. `;
@@ -55,6 +61,19 @@ serve(async (req) => {
         },
       },
     ];
+
+    // Add previous page images for character consistency (most recent first)
+    if (previousImages && previousImages.length > 0) {
+      console.log(`Including ${previousImages.length} previous images for character consistency`);
+      previousImages.forEach((prevImage: string, index: number) => {
+        messageContent.push({
+          type: "image_url",
+          image_url: {
+            url: prevImage,
+          },
+        });
+      });
+    }
 
     // Add background images if provided
     if (backgroundImages && backgroundImages.length > 0) {
@@ -126,7 +145,7 @@ serve(async (req) => {
       throw new Error("No image was generated");
     }
 
-    console.log("Story page generated successfully");
+    console.log(`Story page ${pageNumber || 1} generated successfully`);
 
     return new Response(
       JSON.stringify({ image: generatedImage }),
