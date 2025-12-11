@@ -30,22 +30,40 @@ serve(async (req) => {
     console.log(`Generating story page ${pageNumber || 1} with text:`, storyText.substring(0, 100) + "...");
 
     // Build the prompt for image generation with character consistency
-    let prompt = `Create a children's book illustration in a square 1:1 aspect ratio that matches the art style, color palette, and illustration technique of the provided character image. `;
+    let prompt = `Create a children's book illustration in a square 1:1 aspect ratio.
+
+CRITICAL STYLE REQUIREMENTS:
+- Match EXACTLY the illustration style of the provided main character (protagonist) image
+- Pay special attention to the EYES and MOUTH style - use the SAME artistic approach for depicting facial features (shape, line work, expressiveness, proportions, dot eyes vs detailed eyes, smile style, etc.)
+- ALL characters in this scene MUST have eyes and mouth drawn in the IDENTICAL style as the protagonist
+- Match the color palette, line thickness, and artistic technique throughout
+- The protagonist's face style is the canonical reference for ALL character faces
+
+`;
     
     // Add character consistency instructions if there are previous pages
     if (previousImages && previousImages.length > 0) {
-      prompt += `CRITICAL: This is page ${pageNumber} of a multi-page story. The main character(s) MUST look EXACTLY the same as in the previous page images provided - same appearance, clothing, colors, proportions, and art style. Maintain absolute character consistency throughout the story. `;
+      prompt += `MULTI-PAGE CONSISTENCY (Page ${pageNumber}):
+- The protagonist and all characters MUST look EXACTLY the same as in the previous page images
+- Same appearance, clothing, colors, proportions, and art style
+- ESPECIALLY maintain the SAME eyes and mouth illustration style across all pages
+- Characters must be immediately recognizable from page to page
+
+`;
     }
     
-    prompt += `The scene should visually depict: "${storyText}". `;
-    prompt += `IMPORTANT: Do NOT include any text, words, letters, numbers, or captions in the image. The image should be purely visual with no written text whatsoever. `;
-    prompt += `The illustration should be in the same whimsical, storybook style as the character reference. `;
-    prompt += `Use similar colors, line work, and artistic techniques. `;
-    prompt += `The image should be suitable for a children's story book page. `;
-    prompt += `Make it warm, inviting, and magical. Output the image in square format with no text.`;
+    prompt += `SCENE TO ILLUSTRATE: "${storyText}"
+
+ADDITIONAL REQUIREMENTS:
+- IMPORTANT: Do NOT include any text, words, letters, numbers, or captions in the image
+- The illustration should be in the same whimsical, storybook style as the character reference
+- Use similar colors, line work, and artistic techniques
+- Make it warm, inviting, and magical
+- Output the image in square format with no text`;
 
     if (backgroundImages && backgroundImages.length > 0) {
-      prompt += ` Also use the provided background reference images to guide the environment, scenery, and color palette.`;
+      prompt += `
+- Also use the provided background reference images to guide the environment, scenery, and color palette`;
     }
 
     // Build message content with images

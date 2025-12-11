@@ -137,12 +137,16 @@ const Index = () => {
         .filter((page) => page && page.image && page.id !== currentPage.id)
         .map((page) => ({ pageNumber: page.pageNumber, image: page.image! }));
 
+      // Check if prompt mentions "protagonist" to include character image as style reference
+      const mentionsProtagonist = /\bprotagonist\b/gi.test(editPrompt);
+
       const { data, error } = await supabase.functions.invoke("edit-story-image", {
         body: {
           currentImage: currentPage.image,
           editPrompt: editPrompt,
           referenceImages: referenceImages,
           currentPageNumber: currentPage.pageNumber,
+          characterImage: mentionsProtagonist && characterImages.length > 0 ? characterImages[0] : undefined,
         },
       });
 
