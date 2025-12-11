@@ -219,7 +219,8 @@ export function StoryPagePreview({
                   <Textarea
                     value={editedText}
                     onChange={(e) => setEditedText(e.target.value)}
-                    className="flex-1 font-serif text-base resize-none"
+                    className="flex-1 font-bold text-base resize-none"
+                    style={{ fontFamily: "'Comic Sans MS', 'Comic Sans', cursive" }}
                     autoFocus
                   />
                   <div className="flex gap-2 justify-end">
@@ -235,7 +236,10 @@ export function StoryPagePreview({
                 </div>
               ) : (
                 <>
-                  <p className="text-sm md:text-lg lg:text-xl font-serif text-foreground leading-relaxed text-center">
+                  <p 
+                    className="text-sm md:text-lg lg:text-xl font-bold text-foreground leading-relaxed text-center"
+                    style={{ fontFamily: "'Comic Sans MS', 'Comic Sans', cursive" }}
+                  >
                     {text || "Your story text will appear here..."}
                   </p>
                   {/* Edit text button */}
