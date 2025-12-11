@@ -7,21 +7,27 @@ import { Textarea } from "@/components/ui/textarea";
 
 interface StoryPagePreviewProps {
   image: string | null;
+  pendingImage: string | null;
   text: string;
   isLoading?: boolean;
   isEditingImage?: boolean;
   className?: string;
   onEditImage?: (prompt: string) => void;
+  onAcceptImage?: () => void;
+  onDiscardImage?: () => void;
   onTextChange?: (newText: string) => void;
 }
 
 export function StoryPagePreview({
   image,
+  pendingImage,
   text,
   isLoading = false,
   isEditingImage = false,
   className,
   onEditImage,
+  onAcceptImage,
+  onDiscardImage,
   onTextChange,
 }: StoryPagePreviewProps) {
   const [isHoveringImage, setIsHoveringImage] = useState(false);
@@ -31,6 +37,7 @@ export function StoryPagePreview({
   const [editedText, setEditedText] = useState(text);
 
   const hasContent = image || text;
+  const isComparing = pendingImage !== null;
 
   const handleImageEditSubmit = () => {
     if (imageEditPrompt.trim() && onEditImage) {
@@ -56,6 +63,56 @@ export function StoryPagePreview({
     setEditedText(text);
     setIsEditingText(false);
   };
+
+  // Comparison view when there's a pending image
+  if (isComparing) {
+    return (
+      <div className={cn("space-y-3", className)}>
+        <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+          <BookOpen className="w-4 h-4 text-primary" />
+          Compare Changes
+        </h3>
+
+        <div className="grid grid-cols-2 gap-4">
+          {/* Original Image */}
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground text-center font-medium">Original</p>
+            <div className="aspect-square rounded-lg overflow-hidden border border-border">
+              <img
+                src={image!}
+                alt="Original"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+
+          {/* New Image */}
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground text-center font-medium">Edited</p>
+            <div className="aspect-square rounded-lg overflow-hidden border-2 border-primary">
+              <img
+                src={pendingImage}
+                alt="Edited"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Accept/Discard buttons */}
+        <div className="flex gap-3">
+          <Button onClick={onAcceptImage} className="flex-1">
+            <Check className="w-4 h-4 mr-2" />
+            Accept New Image
+          </Button>
+          <Button onClick={onDiscardImage} variant="outline" className="flex-1">
+            <X className="w-4 h-4 mr-2" />
+            Keep Original
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -146,7 +203,7 @@ export function StoryPagePreview({
                   )}
                 </>
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-center text-muted-foreground">
+                <div className="w-full h-full flex items-center justify-center text-center text-muted-foreground bg-muted/30">
                   <div>
                     <BookOpen className="w-12 h-12 mx-auto mb-2 opacity-50" />
                     <p className="text-sm">Image will appear here</p>
