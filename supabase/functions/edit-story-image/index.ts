@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { currentImage, editPrompt } = await req.json();
+    const { currentImage, editPrompt, referenceImages, currentPageNumber } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -27,11 +27,38 @@ serve(async (req) => {
     }
 
     console.log("Editing story image with prompt:", editPrompt);
+    console.log("Reference images count:", referenceImages?.length || 0);
 
-    const prompt = `Edit this children's book illustration based on this instruction: "${editPrompt}". 
+    // Build prompt with reference context
+    let prompt = `Edit this children's book illustration (page ${currentPageNumber || "unknown"}) based on this instruction: "${editPrompt}".`;
+
+    if (referenceImages && referenceImages.length > 0) {
+      prompt += ` Reference images from other pages are provided - use them to match characters, style, or elements as specified in the instruction.`;
+      referenceImages.forEach((ref: { pageNumber: number }) => {
+        prompt += ` Image from page ${ref.pageNumber} is included for reference.`;
+      });
+    }
+
+    prompt += `
 Keep the same art style, color palette, and illustration technique. 
 IMPORTANT: Do NOT include any text, words, letters, or captions in the image. The image should be purely visual with no written text whatsoever.
 Maintain the warm, inviting, magical storybook feel. Output in square 1:1 format with no text.`;
+
+    // Build message content with all images
+    const messageContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
+      { type: "text", text: prompt },
+      { type: "image_url", image_url: { url: currentImage } },
+    ];
+
+    // Add reference images
+    if (referenceImages && referenceImages.length > 0) {
+      referenceImages.forEach((ref: { pageNumber: number; image: string }) => {
+        messageContent.push({
+          type: "image_url",
+          image_url: { url: ref.image },
+        });
+      });
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -44,10 +71,7 @@ Maintain the warm, inviting, magical storybook feel. Output in square 1:1 format
         messages: [
           {
             role: "user",
-            content: [
-              { type: "text", text: prompt },
-              { type: "image_url", image_url: { url: currentImage } },
-            ],
+            content: messageContent,
           },
         ],
         modalities: ["image", "text"],

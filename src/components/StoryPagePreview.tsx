@@ -159,7 +159,7 @@ export function StoryPagePreview({
                           <Input
                             value={imageEditPrompt}
                             onChange={(e) => setImageEditPrompt(e.target.value)}
-                            placeholder="Describe how to edit..."
+                            placeholder="e.g., use character from page 1..."
                             className="bg-background text-foreground"
                             autoFocus
                             onKeyDown={(e) => {

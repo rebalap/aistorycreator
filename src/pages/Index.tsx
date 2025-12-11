@@ -106,16 +106,43 @@ const Index = () => {
     }
   };
 
+  // Helper to parse page number from text (handles "1", "one", "two", etc.)
+  const parsePageNumber = (text: string): number => {
+    const numberWords: Record<string, number> = {
+      one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8,
+      nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14,
+      fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18,
+    };
+    const lower = text.toLowerCase();
+    return numberWords[lower] || parseInt(text, 10);
+  };
+
   const handleEditImage = async (editPrompt: string) => {
     if (!currentPage.image) return;
 
     setIsEditingImage(true);
 
     try {
+      // Parse page references from prompt (e.g., "page 1", "story page 3")
+      const pageRefRegex = /(?:story\s+)?page\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen)/gi;
+      const matches = [...editPrompt.matchAll(pageRefRegex)];
+
+      // Collect referenced images from other pages
+      const referenceImages = matches
+        .map((match) => {
+          const pageNum = parsePageNumber(match[1]);
+          const page = pages[pageNum - 1]; // 0-indexed
+          return page;
+        })
+        .filter((page) => page && page.image && page.id !== currentPage.id)
+        .map((page) => ({ pageNumber: page.pageNumber, image: page.image! }));
+
       const { data, error } = await supabase.functions.invoke("edit-story-image", {
         body: {
           currentImage: currentPage.image,
           editPrompt: editPrompt,
+          referenceImages: referenceImages,
+          currentPageNumber: currentPage.pageNumber,
         },
       });
 
