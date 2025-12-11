@@ -123,7 +123,7 @@ export function StoryPagePreview({
 
       <div
         className={cn(
-          "relative w-full aspect-video rounded-xl overflow-hidden border border-border shadow-lg",
+          "relative w-full aspect-video overflow-hidden",
           "bg-gradient-to-br from-card to-accent/20"
         )}
       >
@@ -149,7 +149,7 @@ export function StoryPagePreview({
                   <img
                     src={image}
                     alt="Story illustration"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover object-center"
                   />
                   {/* Edit overlay */}
                   {(isHoveringImage || showImageEditInput) && onEditImage && (
