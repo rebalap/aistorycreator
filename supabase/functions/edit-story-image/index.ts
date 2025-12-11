@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { currentImage, editPrompt, referenceImages, currentPageNumber } = await req.json();
+    const { currentImage, editPrompt, referenceImages, currentPageNumber, characterImage } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -28,27 +28,58 @@ serve(async (req) => {
 
     console.log("Editing story image with prompt:", editPrompt);
     console.log("Reference images count:", referenceImages?.length || 0);
+    console.log("Character image provided:", !!characterImage);
+
+    // Replace "protagonist" with descriptive reference
+    const processedPrompt = editPrompt.replace(
+      /\bprotagonist\b/gi, 
+      "the main character (use the uploaded character reference image as the style guide)"
+    );
 
     // Build prompt with reference context
-    let prompt = `Edit this children's book illustration (page ${currentPageNumber || "unknown"}) based on this instruction: "${editPrompt}".`;
+    let prompt = `Edit this children's book illustration (page ${currentPageNumber || "unknown"}) based on this instruction: "${processedPrompt}".
+
+CRITICAL STYLE CONSISTENCY:
+- If editing or adding characters, ensure ALL characters have the SAME illustration style for EYES and MOUTH as the protagonist/main character
+- Match the exact artistic approach for facial features: eye shape, pupil style, mouth expression technique
+- The main character reference image defines the canonical style for all character facial features
+- Maintain consistency in line work, color palette, and artistic technique`;
+
+    if (characterImage) {
+      prompt += `
+- A main character reference image is provided - use it as the definitive style guide for all facial features`;
+    }
 
     if (referenceImages && referenceImages.length > 0) {
-      prompt += ` Reference images from other pages are provided - use them to match characters, style, or elements as specified in the instruction.`;
+      prompt += `
+- Reference images from other pages are provided - use them to match characters, style, or elements as specified in the instruction`;
       referenceImages.forEach((ref: { pageNumber: number }) => {
-        prompt += ` Image from page ${ref.pageNumber} is included for reference.`;
+        prompt += `
+- Image from page ${ref.pageNumber} is included for reference`;
       });
     }
 
     prompt += `
-Keep the same art style, color palette, and illustration technique. 
-IMPORTANT: Do NOT include any text, words, letters, or captions in the image. The image should be purely visual with no written text whatsoever.
-Maintain the warm, inviting, magical storybook feel. Output in square 1:1 format with no text.`;
+
+IMPORTANT:
+- Keep the same art style, color palette, and illustration technique
+- Do NOT include any text, words, letters, or captions in the image
+- Maintain the warm, inviting, magical storybook feel
+- Output in square 1:1 format with no text`;
 
     // Build message content with all images
     const messageContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
       { type: "text", text: prompt },
       { type: "image_url", image_url: { url: currentImage } },
     ];
+
+    // Add character image as style reference if provided
+    if (characterImage) {
+      messageContent.push({
+        type: "image_url",
+        image_url: { url: characterImage },
+      });
+    }
 
     // Add reference images
     if (referenceImages && referenceImages.length > 0) {
