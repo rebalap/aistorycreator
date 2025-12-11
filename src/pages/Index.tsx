@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ImageUploader } from "@/components/ImageUploader";
+import { MetadataBar } from "@/components/MetadataBar";
 import { StoryPagePreview } from "@/components/StoryPagePreview";
 import { PageThumbnails, StoryPage } from "@/components/PageThumbnails";
 import { Button } from "@/components/ui/button";
@@ -52,7 +52,6 @@ const Index = () => {
     }
     setPages((prev) => {
       const newPages = prev.filter((_, index) => index !== currentPageIndex);
-      // Renumber pages
       return newPages.map((page, index) => ({ ...page, pageNumber: index + 1 }));
     });
     setCurrentPageIndex((prev) => Math.max(0, prev - 1));
@@ -73,11 +72,10 @@ const Index = () => {
     updateCurrentPage({ image: null, pendingImage: null });
 
     try {
-      // Collect previous images for character consistency
       const previousImages = pages
         .filter((_, index) => index < currentPageIndex && pages[index].image)
         .map((page) => page.image!)
-        .slice(-3); // Use last 3 pages for context
+        .slice(-3);
 
       const { data, error } = await supabase.functions.invoke("generate-story-page", {
         body: {
@@ -238,15 +236,16 @@ const Index = () => {
 
   return (
     <main className="min-h-screen bg-background">
+      {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent-foreground flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-primary-foreground" />
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-accent-foreground flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Story Creator</h1>
-              <p className="text-xs text-muted-foreground">AI-powered multi-page story generator</p>
+              <h1 className="text-lg font-bold text-foreground">Story Creator</h1>
+              <p className="text-xs text-muted-foreground">AI-powered multi-page stories</p>
             </div>
           </div>
           <Button variant="outline" size="sm" onClick={handleReset}>
@@ -256,68 +255,56 @@ const Index = () => {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-2 gap-8">
-          <div className="space-y-6">
-            <div className="bg-card rounded-xl p-6 border border-border shadow-sm">
-              <ImageUploader
-                label="Character Image"
-                description="Upload the main character illustration. The AI will maintain character consistency across all pages."
-                images={characterImages}
-                onImagesChange={setCharacterImages}
-              />
-            </div>
+      <div className="container mx-auto px-4 py-4 space-y-4">
+        {/* Metadata Bar - Character & Background uploads */}
+        <MetadataBar
+          characterImages={characterImages}
+          onCharacterImagesChange={setCharacterImages}
+          backgroundImages={backgroundImages}
+          onBackgroundImagesChange={setBackgroundImages}
+        />
 
-            <div className="bg-card rounded-xl p-6 border border-border shadow-sm">
-              <ImageUploader
-                label="Background References (Optional)"
-                description="Upload reference images to guide the background style and color palette."
-                multiple
-                images={backgroundImages}
-                onImagesChange={setBackgroundImages}
-              />
-            </div>
+        {/* Page Thumbnails - Full width horizontal */}
+        <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
+          <PageThumbnails
+            pages={pages}
+            currentPageIndex={currentPageIndex}
+            onPageSelect={setCurrentPageIndex}
+            onAddPage={handleAddPage}
+            maxPages={18}
+          />
+        </div>
 
-            {/* Page Navigation */}
-            <div className="bg-card rounded-xl p-6 border border-border shadow-sm">
-              <PageThumbnails
-                pages={pages}
-                currentPageIndex={currentPageIndex}
-                onPageSelect={setCurrentPageIndex}
-                onAddPage={handleAddPage}
-                maxPages={18}
-              />
-            </div>
-
-            <div className="bg-card rounded-xl p-6 border border-border shadow-sm space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-medium text-foreground">
-                    Page {currentPage.pageNumber} Story Line
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Enter the text that will appear on this page
-                  </p>
-                </div>
-                {pages.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleDeletePage}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                )}
+        {/* Story Page Editor - Two columns */}
+        <div className="grid lg:grid-cols-2 gap-4">
+          {/* Left: Page Input */}
+          <div className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-foreground">
+                  Page {currentPage.pageNumber} Story Line
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Enter text for this page
+                </p>
               </div>
-              <Textarea
-                value={currentPage.text}
-                onChange={(e) => handleTextChange(e.target.value)}
-                placeholder="Once upon a time, in a magical forest..."
-                className="min-h-[120px] resize-none font-serif text-base"
-              />
+              {pages.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeletePage}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
             </div>
-
+            <Textarea
+              value={currentPage.text}
+              onChange={(e) => handleTextChange(e.target.value)}
+              placeholder="Once upon a time, in a magical forest..."
+              className="min-h-[140px] resize-none font-serif text-base"
+            />
             <Button
               onClick={handleGenerate}
               disabled={
@@ -327,24 +314,25 @@ const Index = () => {
                 characterImages.length === 0 ||
                 !currentPage.text.trim()
               }
-              className="w-full h-12 text-base font-medium"
+              className="w-full"
               size="lg"
             >
               {isGenerating ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
-                  Generating Page {currentPage.pageNumber}...
+                  <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                  Generating...
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-5 h-5 mr-2" />
+                  <Sparkles className="w-4 h-4 mr-2" />
                   Generate Page {currentPage.pageNumber}
                 </>
               )}
             </Button>
           </div>
 
-          <div className="space-y-6">
+          {/* Right: Preview */}
+          <div className="space-y-3">
             <StoryPagePreview
               image={currentPage.image}
               pendingImage={currentPage.pendingImage}
@@ -362,10 +350,9 @@ const Index = () => {
                 onClick={handleDownload}
                 variant="outline"
                 className="w-full"
-                size="lg"
                 disabled={isEditingImage}
               >
-                <Download className="w-5 h-5 mr-2" />
+                <Download className="w-4 h-4 mr-2" />
                 Download Page {currentPage.pageNumber}
               </Button>
             )}
