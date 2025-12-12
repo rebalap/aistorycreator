@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { BookOpen, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface StoryPagePreviewProps {
   image: string | null;
@@ -193,14 +194,23 @@ export function StoryPagePreview({
                           </div>
                         </div>
                       ) : (
-                        <Button 
-                          onClick={() => setShowImageEditInput(true)}
-                          variant="secondary"
-                          className="gap-2"
-                        >
-                          <Pencil className="w-4 h-4" />
-                          Edit Image
-                        </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                onClick={() => setShowImageEditInput(true)}
+                                variant="secondary"
+                                className="gap-2"
+                              >
+                                <Pencil className="w-4 h-4" />
+                                Edit Image
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-xs text-center">
+                              <p>Use "protagonist" to reference your main character, or "page 1", "page 2" to reference other pages</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       )}
                     </div>
                   )}
