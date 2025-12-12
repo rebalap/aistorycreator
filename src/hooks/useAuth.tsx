@@ -33,7 +33,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // Handle "remember me" - sign out on browser close if not remembered
+    const handleBeforeUnload = () => {
+      const rememberMe = localStorage.getItem("rememberMe");
+      if (rememberMe === "false") {
+        supabase.auth.signOut();
+        localStorage.removeItem("rememberMe");
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
   }, []);
 
   const signUp = async (email: string, password: string) => {
