@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Sparkles, Mail, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -20,6 +21,7 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
 
   useEffect(() => {
     if (user) {
@@ -65,6 +67,8 @@ const Auth = () => {
         toast.error(error.message);
       }
     } else {
+      // Store remember me preference
+      localStorage.setItem("rememberMe", rememberMe ? "true" : "false");
       toast.success("Welcome back!");
       navigate("/");
     }
@@ -146,6 +150,16 @@ const Auth = () => {
                       required
                     />
                   </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="remember-me"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(checked === true)}
+                  />
+                  <Label htmlFor="remember-me" className="text-sm font-normal cursor-pointer">
+                    Remember me
+                  </Label>
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? (
