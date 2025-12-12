@@ -14,7 +14,77 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      stories: {
+        Row: {
+          background_image_urls: string[] | null
+          character_image_url: string | null
+          cover_image_url: string | null
+          created_at: string | null
+          id: string
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          background_image_urls?: string[] | null
+          character_image_url?: string | null
+          cover_image_url?: string | null
+          created_at?: string | null
+          id?: string
+          title?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          background_image_urls?: string[] | null
+          character_image_url?: string | null
+          cover_image_url?: string | null
+          created_at?: string | null
+          id?: string
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      story_pages: {
+        Row: {
+          created_at: string | null
+          id: string
+          image_url: string | null
+          page_number: number
+          story_id: string
+          text: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          page_number: number
+          story_id: string
+          text?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          page_number?: number
+          story_id?: string
+          text?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_pages_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
