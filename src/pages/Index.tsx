@@ -1,12 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { MetadataBar } from "@/components/MetadataBar";
 import { StoryPagePreview } from "@/components/StoryPagePreview";
 import { PageThumbnails, StoryPage } from "@/components/PageThumbnails";
+import { SaveStoryDialog } from "@/components/SaveStoryDialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Download, RefreshCw, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Sparkles, Download, RefreshCw, Trash2, Save, BookOpen, LogIn, LogOut, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useStories } from "@/hooks/useStories";
 
 const createEmptyPage = (pageNumber: number): StoryPage => ({
   id: crypto.randomUUID(),
@@ -17,14 +22,158 @@ const createEmptyPage = (pageNumber: number): StoryPage => ({
 });
 
 const Index = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const storyId = searchParams.get("story");
+  
+  const { user, signOut, loading: authLoading } = useAuth();
+  const { createStory, updateStory, getStoryWithPages, saveStoryPages } = useStories();
+
   const [characterImages, setCharacterImages] = useState<string[]>([]);
   const [backgroundImages, setBackgroundImages] = useState<string[]>([]);
   const [pages, setPages] = useState<StoryPage[]>([createEmptyPage(1)]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEditingImage, setIsEditingImage] = useState(false);
+  
+  const [currentStoryId, setCurrentStoryId] = useState<string | null>(null);
+  const [storyTitle, setStoryTitle] = useState("Untitled Story");
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingStory, setIsLoadingStory] = useState(false);
 
   const currentPage = pages[currentPageIndex];
+
+  // Load story from URL param
+  useEffect(() => {
+    if (storyId && user) {
+      loadStory(storyId);
+    }
+  }, [storyId, user]);
+
+  const loadStory = async (id: string) => {
+    setIsLoadingStory(true);
+    const result = await getStoryWithPages(id);
+    
+    if (result) {
+      const { story, pages: loadedPages } = result;
+      setCurrentStoryId(story.id);
+      setStoryTitle(story.title);
+      setCharacterImages(story.character_image_url ? [story.character_image_url] : []);
+      setBackgroundImages(story.background_image_urls || []);
+      
+      if (loadedPages.length > 0) {
+        setPages(loadedPages.map(p => ({
+          id: p.id,
+          pageNumber: p.page_number,
+          text: p.text,
+          image: p.image_url,
+          pendingImage: null,
+        })));
+      } else {
+        setPages([createEmptyPage(1)]);
+      }
+      setCurrentPageIndex(0);
+    }
+    setIsLoadingStory(false);
+  };
+
+  const uploadImageToStorage = async (base64Image: string, fileName: string): Promise<string | null> => {
+    if (!user) return null;
+    
+    try {
+      // Convert base64 to blob
+      const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, "");
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "image/png" });
+
+      const filePath = `${user.id}/${fileName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("story-images")
+        .upload(filePath, blob, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("story-images")
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Upload error:", error);
+      return null;
+    }
+  };
+
+  const handleSaveStory = async (title: string) => {
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      // Upload character image if it's base64
+      let characterImageUrl = characterImages[0] || null;
+      if (characterImageUrl && characterImageUrl.startsWith("data:")) {
+        const uploaded = await uploadImageToStorage(characterImageUrl, `character-${Date.now()}.png`);
+        if (uploaded) characterImageUrl = uploaded;
+      }
+
+      // Upload page images
+      const pageDataForSave = [];
+      for (const page of pages) {
+        let imageUrl = page.image;
+        if (imageUrl && imageUrl.startsWith("data:")) {
+          const uploaded = await uploadImageToStorage(imageUrl, `page-${page.pageNumber}-${Date.now()}.png`);
+          if (uploaded) imageUrl = uploaded;
+        }
+        pageDataForSave.push({
+          page_number: page.pageNumber,
+          text: page.text,
+          image_url: imageUrl,
+        });
+      }
+
+      // Get cover image (first page with image)
+      const coverImage = pageDataForSave.find(p => p.image_url)?.image_url || null;
+
+      if (currentStoryId) {
+        // Update existing story
+        await updateStory(currentStoryId, {
+          title,
+          cover_image_url: coverImage,
+          character_image_url: characterImageUrl,
+          background_image_urls: backgroundImages,
+        });
+        await saveStoryPages(currentStoryId, pageDataForSave);
+        setStoryTitle(title);
+        toast.success("Story saved!");
+      } else {
+        // Create new story
+        const newStory = await createStory(title, characterImageUrl || undefined, backgroundImages.length > 0 ? backgroundImages : undefined);
+        if (newStory) {
+          await updateStory(newStory.id, { cover_image_url: coverImage });
+          await saveStoryPages(newStory.id, pageDataForSave);
+          setCurrentStoryId(newStory.id);
+          setStoryTitle(title);
+          toast.success("Story saved!");
+        }
+      }
+    } catch (error: any) {
+      console.error("Save error:", error);
+      toast.error("Failed to save story");
+    } finally {
+      setIsSaving(false);
+      setShowSaveDialog(false);
+    }
+  };
 
   const updateCurrentPage = (updates: Partial<StoryPage>) => {
     setPages((prev) =>
@@ -106,7 +255,6 @@ const Index = () => {
     }
   };
 
-  // Helper to parse page number from text (handles "1", "one", "two", etc.)
   const parsePageNumber = (text: string): number => {
     const numberWords: Record<string, number> = {
       one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8,
@@ -123,21 +271,18 @@ const Index = () => {
     setIsEditingImage(true);
 
     try {
-      // Parse page references from prompt (e.g., "page 1", "story page 3")
       const pageRefRegex = /(?:story\s+)?page\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen)/gi;
       const matches = [...editPrompt.matchAll(pageRefRegex)];
 
-      // Collect referenced images from other pages
       const referenceImages = matches
         .map((match) => {
           const pageNum = parsePageNumber(match[1]);
-          const page = pages[pageNum - 1]; // 0-indexed
+          const page = pages[pageNum - 1];
           return page;
         })
         .filter((page) => page && page.image && page.id !== currentPage.id)
         .map((page) => ({ pageNumber: page.pageNumber, image: page.image! }));
 
-      // Check if prompt mentions "protagonist" to include character image as style reference
       const mentionsProtagonist = /\bprotagonist\b/gi.test(editPrompt);
 
       const { data, error } = await supabase.functions.invoke("edit-story-image", {
@@ -317,7 +462,7 @@ const Index = () => {
 
       const link = document.createElement("a");
       link.href = URL.createObjectURL(content);
-      link.download = `my-story-${Date.now()}.zip`;
+      link.download = `${storyTitle || "my-story"}-${Date.now()}.zip`;
       link.click();
       URL.revokeObjectURL(link.href);
 
@@ -334,7 +479,22 @@ const Index = () => {
     setBackgroundImages([]);
     setPages([createEmptyPage(1)]);
     setCurrentPageIndex(0);
+    setCurrentStoryId(null);
+    setStoryTitle("Untitled Story");
+    navigate("/", { replace: true });
   };
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
+  if (isLoadingStory) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-background">
@@ -345,12 +505,37 @@ const Index = () => {
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-accent-foreground flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-primary-foreground" />
             </div>
-            <div>
-              <h1 className="text-lg font-bold text-foreground">Story Creator</h1>
+            <div className="flex-1">
+              <Input
+                value={storyTitle}
+                onChange={(e) => setStoryTitle(e.target.value)}
+                className="text-lg font-bold border-none bg-transparent p-0 h-auto focus-visible:ring-0"
+                placeholder="Story Title"
+              />
               <p className="text-xs text-muted-foreground">AI-powered multi-page stories</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {user && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/shelf")}
+              >
+                <BookOpen className="w-4 h-4 mr-2" />
+                My Shelf
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSaveDialog(true)}
+              disabled={!user}
+              title={!user ? "Sign in to save stories" : undefined}
+            >
+              <Save className="w-4 h-4 mr-2" />
+              Save
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -364,6 +549,18 @@ const Index = () => {
               <RefreshCw className="w-4 h-4 mr-2" />
               Reset
             </Button>
+            {authLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : user ? (
+              <Button variant="ghost" size="icon" onClick={handleSignOut}>
+                <LogOut className="w-4 h-4" />
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => navigate("/auth")}>
+                <LogIn className="w-4 h-4 mr-2" />
+                Sign In
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -472,6 +669,14 @@ const Index = () => {
           </div>
         </div>
       </div>
+
+      <SaveStoryDialog
+        open={showSaveDialog}
+        onOpenChange={setShowSaveDialog}
+        onSave={handleSaveStory}
+        defaultTitle={storyTitle}
+        isSaving={isSaving}
+      />
     </main>
   );
 };
