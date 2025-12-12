@@ -44,6 +44,13 @@ const Index = () => {
 
   const currentPage = pages[currentPageIndex];
 
+  // Redirect unauthenticated users to auth page
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [user, authLoading, navigate]);
+
   // Load story from URL param
   useEffect(() => {
     if (storyId && user) {
@@ -488,7 +495,7 @@ const Index = () => {
     await signOut();
   };
 
-  if (isLoadingStory) {
+  if (authLoading || isLoadingStory) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
