@@ -34,6 +34,7 @@ const Index = () => {
   const [backgroundImages, setBackgroundImages] = useState<string[]>([]);
   const [pages, setPages] = useState<StoryPage[]>([createEmptyPage(1)]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [isCoverSelected, setIsCoverSelected] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEditingImage, setIsEditingImage] = useState(false);
   
@@ -702,9 +703,15 @@ const Index = () => {
           <PageThumbnails
             pages={pages}
             currentPageIndex={currentPageIndex}
-            onPageSelect={setCurrentPageIndex}
+            onPageSelect={(index) => {
+              setIsCoverSelected(false);
+              setCurrentPageIndex(index);
+            }}
             onAddPage={handleAddPage}
             maxPages={18}
+            coverImage={coverImage}
+            onCoverSelect={() => setIsCoverSelected(true)}
+            isCoverSelected={isCoverSelected}
           />
         </div>
 
