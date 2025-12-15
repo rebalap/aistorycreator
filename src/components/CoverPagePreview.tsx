@@ -86,51 +86,6 @@ export const CoverPagePreview = ({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-medium text-foreground">Cover Page</h3>
-          <p className="text-xs text-muted-foreground">16:9 book cover with title</p>
-        </div>
-        {!coverImage && (
-          <Button
-            size="sm"
-            onClick={onGenerate}
-            disabled={!canGenerate || isGenerating}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 mr-2" />
-                Generate Cover
-              </>
-            )}
-          </Button>
-        )}
-        {coverImage && !isEditing && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onGenerate}
-            disabled={isGenerating}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Regenerating...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 mr-2" />
-                Regenerate
-              </>
-            )}
-          </Button>
-        )}
-      </div>
 
       <div
         className="relative"
