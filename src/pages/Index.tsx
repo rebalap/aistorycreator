@@ -4,7 +4,7 @@ import { MetadataBar } from "@/components/MetadataBar";
 import { StoryPagePreview } from "@/components/StoryPagePreview";
 import { PageThumbnails, StoryPage } from "@/components/PageThumbnails";
 import { SaveStoryDialog } from "@/components/SaveStoryDialog";
-import { CoverPagePreview, TitlePosition, TitleFontStyle, TitleColor, TitleFontSize } from "@/components/CoverPagePreview";
+import { CoverPagePreview, TitlePosition, TitleFontStyle, TitleFontSize } from "@/components/CoverPagePreview";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -52,7 +52,7 @@ const Index = () => {
   const [coverTitle, setCoverTitle] = useState<string>("Untitled Story");
   const [titlePosition, setTitlePosition] = useState<TitlePosition>('center');
   const [titleFontStyle, setTitleFontStyle] = useState<TitleFontStyle>('classic');
-  const [titleColor, setTitleColor] = useState<TitleColor>('white');
+  const [titleColor, setTitleColor] = useState<string>('#FFFFFF');
   const [titleFontSize, setTitleFontSize] = useState<TitleFontSize>('medium');
 
   const currentPage = pages[currentPageIndex];
@@ -618,14 +618,18 @@ const Index = () => {
         // Font size from user selection
         const fontSize = fontSizeMapping[titleFontSize];
 
-        // Color mapping
-        const colorMapping: Record<TitleColor, { fill: string; stroke?: string; strokeWidth?: number }> = {
-          white: { fill: "#ffffff" },
-          gold: { fill: "#f59e0b" },
-          'black-outline': { fill: "#000000", stroke: "#ffffff", strokeWidth: 4 }
+        // Color config based on luminance
+        const isLightColor = (hex: string): boolean => {
+          const r = parseInt(hex.slice(1, 3), 16);
+          const g = parseInt(hex.slice(3, 5), 16);
+          const b = parseInt(hex.slice(5, 7), 16);
+          const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+          return luminance > 0.5;
         };
 
-        const colorConfig = colorMapping[titleColor];
+        const colorConfig = isLightColor(titleColor) 
+          ? { fill: titleColor } 
+          : { fill: titleColor, stroke: "#ffffff", strokeWidth: 4 };
 
         // Draw title text
         ctx.font = `bold ${fontSize}px ${fontMapping[titleFontStyle]}`;
