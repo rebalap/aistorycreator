@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Pencil, Check, X, BookOpen, ImageIcon, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, CheckCircle2, Circle, Sparkles } from "lucide-react";
+import { Loader2, Pencil, Check, X, BookOpen, ImageIcon, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, CheckCircle2, Circle, Sparkles, Palette } from "lucide-react";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 export type TitlePosition = 'top' | 'center' | 'bottom';
 export type TitleFontStyle = 'classic' | 'modern' | 'playful' | 'bold' | 'comic';
-export type TitleColor = 'white' | 'gold' | 'black-outline';
 export type TitleFontSize = 'small' | 'medium' | 'large';
 
 interface CoverPagePreviewProps {
@@ -25,11 +25,11 @@ interface CoverPagePreviewProps {
   onTitleChange: (title: string) => void;
   titlePosition: TitlePosition;
   titleFontStyle: TitleFontStyle;
-  titleColor: TitleColor;
+  titleColor: string;
   titleFontSize: TitleFontSize;
   onPositionChange: (position: TitlePosition) => void;
   onFontStyleChange: (style: TitleFontStyle) => void;
-  onColorChange: (color: TitleColor) => void;
+  onColorChange: (color: string) => void;
   onFontSizeChange: (size: TitleFontSize) => void;
 }
 
@@ -67,26 +67,41 @@ const fontSizeLabels: Record<TitleFontSize, string> = {
   large: 'L'
 };
 
-const colorClasses: Record<TitleColor, string> = {
-  white: 'text-white',
-  gold: 'text-amber-400',
-  'black-outline': 'text-black'
+// Preset colors for quick selection
+const presetColors = [
+  { value: '#FFFFFF', label: 'White' },
+  { value: '#F59E0B', label: 'Gold' },
+  { value: '#000000', label: 'Black' },
+  { value: '#EF4444', label: 'Red' },
+  { value: '#3B82F6', label: 'Blue' },
+  { value: '#10B981', label: 'Green' },
+  { value: '#8B5CF6', label: 'Purple' },
+  { value: '#EC4899', label: 'Pink' },
+];
+
+// Helper to determine if color is light or dark for text shadow
+const isLightColor = (hex: string): boolean => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5;
 };
 
-const colorStyles: Record<TitleColor, React.CSSProperties> = {
-  white: { textShadow: "2px 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.7)" },
-  gold: { textShadow: "2px 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.7)" },
-  'black-outline': { 
-    textShadow: "none",
-    WebkitTextStroke: "2px white",
-    paintOrder: "stroke fill"
+const getColorStyles = (color: string): React.CSSProperties => {
+  if (isLightColor(color)) {
+    return { 
+      color,
+      textShadow: "2px 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.7)" 
+    };
+  } else {
+    return { 
+      color,
+      textShadow: "none",
+      WebkitTextStroke: "2px white",
+      paintOrder: "stroke fill"
+    };
   }
-};
-
-const colorLabels: Record<TitleColor, string> = {
-  white: 'White',
-  gold: 'Gold',
-  'black-outline': 'Black'
 };
 
 export const CoverPagePreview = ({
@@ -167,8 +182,8 @@ export const CoverPagePreview = ({
         </div>
       ) : (
         <h1
-          className={`font-bold text-center px-6 leading-tight ${fontClasses[titleFontStyle]} ${fontSizeClasses[titleFontSize]} ${colorClasses[titleColor]}`}
-          style={colorStyles[titleColor]}
+          className={`font-bold text-center px-6 leading-tight ${fontClasses[titleFontStyle]} ${fontSizeClasses[titleFontSize]}`}
+          style={getColorStyles(titleColor)}
         >
           {coverTitle}
         </h1>
@@ -358,19 +373,53 @@ export const CoverPagePreview = ({
                     {/* Color controls */}
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-white/80">Color:</span>
-                      <div className="flex gap-1">
-                        {(['white', 'gold', 'black-outline'] as TitleColor[]).map((color) => (
+                      <Popover>
+                        <PopoverTrigger asChild>
                           <Button
-                            key={color}
-                            variant={titleColor === color ? 'default' : 'secondary'}
+                            variant="secondary"
                             size="sm"
-                            className="h-7 px-2 text-xs"
-                            onClick={() => onColorChange(color)}
+                            className="h-7 px-2 gap-1"
                           >
-                            {colorLabels[color]}
+                            <div 
+                              className="w-4 h-4 rounded border border-white/30" 
+                              style={{ backgroundColor: titleColor }}
+                            />
+                            <Palette className="w-3 h-3" />
                           </Button>
-                        ))}
-                      </div>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-3" align="center">
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-4 gap-2">
+                              {presetColors.map((preset) => (
+                                <button
+                                  key={preset.value}
+                                  className={`w-8 h-8 rounded-full border-2 transition-all ${
+                                    titleColor === preset.value ? 'border-primary scale-110' : 'border-transparent hover:scale-105'
+                                  }`}
+                                  style={{ backgroundColor: preset.value }}
+                                  onClick={() => onColorChange(preset.value)}
+                                  title={preset.label}
+                                />
+                              ))}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <label className="text-xs text-muted-foreground">Custom:</label>
+                              <input
+                                type="color"
+                                value={titleColor}
+                                onChange={(e) => onColorChange(e.target.value)}
+                                className="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                              />
+                              <Input
+                                value={titleColor}
+                                onChange={(e) => onColorChange(e.target.value)}
+                                placeholder="#FFFFFF"
+                                className="h-7 w-24 text-xs"
+                              />
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </div>
                 )}
@@ -522,19 +571,53 @@ export const CoverPagePreview = ({
                   {/* Color */}
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground w-14">Color:</span>
-                    <div className="flex gap-1">
-                      {(['white', 'gold', 'black-outline'] as TitleColor[]).map((color) => (
+                    <Popover>
+                      <PopoverTrigger asChild>
                         <Button
-                          key={color}
-                          variant={titleColor === color ? 'default' : 'outline'}
+                          variant="outline"
                           size="sm"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => onColorChange(color)}
+                          className="h-7 px-2 gap-1"
                         >
-                          {colorLabels[color]}
+                          <div 
+                            className="w-4 h-4 rounded border border-border" 
+                            style={{ backgroundColor: titleColor }}
+                          />
+                          <Palette className="w-3 h-3" />
                         </Button>
-                      ))}
-                    </div>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-3" align="start">
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-4 gap-2">
+                            {presetColors.map((preset) => (
+                              <button
+                                key={preset.value}
+                                className={`w-8 h-8 rounded-full border-2 transition-all ${
+                                  titleColor === preset.value ? 'border-primary scale-110' : 'border-transparent hover:scale-105'
+                                }`}
+                                style={{ backgroundColor: preset.value }}
+                                onClick={() => onColorChange(preset.value)}
+                                title={preset.label}
+                              />
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-muted-foreground">Custom:</label>
+                            <input
+                              type="color"
+                              value={titleColor}
+                              onChange={(e) => onColorChange(e.target.value)}
+                              className="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                            />
+                            <Input
+                              value={titleColor}
+                              onChange={(e) => onColorChange(e.target.value)}
+                              placeholder="#FFFFFF"
+                              className="h-7 w-24 text-xs"
+                            />
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
 
