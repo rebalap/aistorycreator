@@ -49,6 +49,7 @@ const Index = () => {
   const [pendingCoverImage, setPendingCoverImage] = useState<string | null>(null);
   const [isGeneratingCover, setIsGeneratingCover] = useState(false);
   const [isEditingCover, setIsEditingCover] = useState(false);
+  const [coverTitle, setCoverTitle] = useState<string>("Untitled Story");
 
   const currentPage = pages[currentPageIndex];
 
@@ -77,6 +78,7 @@ const Index = () => {
       setCharacterImages(story.character_image_url ? [story.character_image_url] : []);
       setBackgroundImages(story.background_image_urls || []);
       setCoverImage(story.cover_image_url || null);
+      setCoverTitle(story.title);
       
       if (loadedPages.length > 0) {
         setPages(loadedPages.map(p => ({
@@ -544,13 +546,55 @@ const Index = () => {
     toast.success("Story page downloaded!");
   };
 
+  const renderCoverToBlob = async (): Promise<Blob | null> => {
+    if (!coverImage) return null;
+
+    return new Promise((resolve) => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return resolve(null);
+
+      const width = 1920;
+      const height = 1080;
+      canvas.width = width;
+      canvas.height = height;
+
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+
+      img.onload = () => {
+        // Draw cover image
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Draw title text
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 80px Georgia, serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
+        ctx.shadowBlur = 15;
+        ctx.shadowOffsetX = 3;
+        ctx.shadowOffsetY = 3;
+        ctx.fillText(coverTitle, width / 2, height / 2);
+
+        canvas.toBlob((blob) => resolve(blob), "image/png");
+      };
+
+      img.onerror = () => resolve(null);
+      img.src = coverImage;
+    });
+  };
+
   const handleDownloadCover = async () => {
     if (!coverImage) return;
 
     try {
-      const response = await fetch(coverImage);
-      const blob = await response.blob();
-      
+      const blob = await renderCoverToBlob();
+      if (!blob) {
+        toast.error("Failed to download cover");
+        return;
+      }
+
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = `${storyTitle || "cover"}-cover-${Date.now()}.png`;
@@ -578,11 +622,12 @@ const Index = () => {
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
 
-      // Add cover image first (as 00-cover.png)
+      // Add cover image first (as 00-cover.png) with title composited
       if (coverImage) {
-        const response = await fetch(coverImage);
-        const coverBlob = await response.blob();
-        zip.file("00-cover.png", coverBlob);
+        const coverBlob = await renderCoverToBlob();
+        if (coverBlob) {
+          zip.file("00-cover.png", coverBlob);
+        }
       }
 
       // Add story pages
@@ -616,6 +661,7 @@ const Index = () => {
     setCurrentPageIndex(0);
     setCurrentStoryId(null);
     setStoryTitle("Untitled Story");
+    setCoverTitle("Untitled Story");
     setCoverImage(null);
     setPendingCoverImage(null);
     navigate("/", { replace: true });
@@ -836,18 +882,20 @@ const Index = () => {
             {isCoverSelected ? (
               // Cover Page Preview
               <>
-                <CoverPagePreview
-                  coverImage={coverImage}
-                  pendingCoverImage={pendingCoverImage}
-                  title={storyTitle}
-                  isGenerating={isGeneratingCover}
-                  isEditing={isEditingCover}
-                  canGenerate={characterImages.length > 0 && storyTitle.trim() !== "" && storyTitle !== "Untitled Story"}
-                  onGenerate={handleGenerateCover}
-                  onEdit={handleEditCover}
-                  onAccept={handleAcceptCover}
-                  onDiscard={handleDiscardCover}
-                />
+              <CoverPagePreview
+                coverImage={coverImage}
+                pendingCoverImage={pendingCoverImage}
+                title={storyTitle}
+                coverTitle={coverTitle}
+                isGenerating={isGeneratingCover}
+                isEditing={isEditingCover}
+                canGenerate={characterImages.length > 0 && storyTitle.trim() !== "" && storyTitle !== "Untitled Story"}
+                onGenerate={handleGenerateCover}
+                onEdit={handleEditCover}
+                onAccept={handleAcceptCover}
+                onDiscard={handleDiscardCover}
+                onTitleChange={setCoverTitle}
+              />
                 {coverImage && !pendingCoverImage && (
                   <Button
                     onClick={handleDownloadCover}
