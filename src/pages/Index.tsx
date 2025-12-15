@@ -4,7 +4,7 @@ import { MetadataBar } from "@/components/MetadataBar";
 import { StoryPagePreview } from "@/components/StoryPagePreview";
 import { PageThumbnails, StoryPage } from "@/components/PageThumbnails";
 import { SaveStoryDialog } from "@/components/SaveStoryDialog";
-import { CoverPagePreview, TitlePosition, TitleFontStyle, TitleColor } from "@/components/CoverPagePreview";
+import { CoverPagePreview, TitlePosition, TitleFontStyle, TitleColor, TitleFontSize } from "@/components/CoverPagePreview";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -53,6 +53,7 @@ const Index = () => {
   const [titlePosition, setTitlePosition] = useState<TitlePosition>('center');
   const [titleFontStyle, setTitleFontStyle] = useState<TitleFontStyle>('classic');
   const [titleColor, setTitleColor] = useState<TitleColor>('white');
+  const [titleFontSize, setTitleFontSize] = useState<TitleFontSize>('medium');
 
   const currentPage = pages[currentPageIndex];
 
@@ -557,7 +558,15 @@ const Index = () => {
       classic: '"Playfair Display", serif',
       modern: '"Inter", sans-serif',
       playful: '"Lobster", cursive',
-      bold: '"Bebas Neue", sans-serif'
+      bold: '"Bebas Neue", sans-serif',
+      comic: '"Comic Neue", cursive'
+    };
+
+    // Font size mapping for canvas
+    const fontSizeMapping: Record<TitleFontSize, number> = {
+      small: 50,
+      medium: 80,
+      large: 120
     };
 
     // Preload the font
@@ -606,8 +615,8 @@ const Index = () => {
           bottom: height * 0.85
         };
 
-        // Font size varies by style
-        const fontSize = titleFontStyle === 'bold' ? 100 : 80;
+        // Font size from user selection
+        const fontSize = fontSizeMapping[titleFontSize];
 
         // Color mapping
         const colorMapping: Record<TitleColor, { fill: string; stroke?: string; strokeWidth?: number }> = {
@@ -963,9 +972,11 @@ const Index = () => {
                 titlePosition={titlePosition}
                 titleFontStyle={titleFontStyle}
                 titleColor={titleColor}
+                titleFontSize={titleFontSize}
                 onPositionChange={setTitlePosition}
                 onFontStyleChange={setTitleFontStyle}
                 onColorChange={setTitleColor}
+                onFontSizeChange={setTitleFontSize}
               />
                 {coverImage && !pendingCoverImage && (
                   <Button

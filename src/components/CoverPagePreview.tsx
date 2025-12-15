@@ -5,8 +5,9 @@ import { Loader2, Pencil, Check, X, BookOpen, ImageIcon, AlignVerticalJustifySta
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 
 export type TitlePosition = 'top' | 'center' | 'bottom';
-export type TitleFontStyle = 'classic' | 'modern' | 'playful' | 'bold';
+export type TitleFontStyle = 'classic' | 'modern' | 'playful' | 'bold' | 'comic';
 export type TitleColor = 'white' | 'gold' | 'black-outline';
+export type TitleFontSize = 'small' | 'medium' | 'large';
 
 interface CoverPagePreviewProps {
   coverImage: string | null;
@@ -25,9 +26,11 @@ interface CoverPagePreviewProps {
   titlePosition: TitlePosition;
   titleFontStyle: TitleFontStyle;
   titleColor: TitleColor;
+  titleFontSize: TitleFontSize;
   onPositionChange: (position: TitlePosition) => void;
   onFontStyleChange: (style: TitleFontStyle) => void;
   onColorChange: (color: TitleColor) => void;
+  onFontSizeChange: (size: TitleFontSize) => void;
 }
 
 const positionClasses: Record<TitlePosition, string> = {
@@ -40,14 +43,28 @@ const fontClasses: Record<TitleFontStyle, string> = {
   classic: 'font-playfair',
   modern: 'font-inter',
   playful: 'font-lobster',
-  bold: 'font-bebas tracking-wider text-4xl md:text-5xl'
+  bold: 'font-bebas tracking-wider',
+  comic: 'font-comic'
 };
 
 const fontLabels: Record<TitleFontStyle, string> = {
   classic: 'Classic',
   modern: 'Modern',
   playful: 'Playful',
-  bold: 'Bold'
+  bold: 'Bold',
+  comic: 'Comic'
+};
+
+const fontSizeClasses: Record<TitleFontSize, string> = {
+  small: 'text-xl md:text-2xl',
+  medium: 'text-2xl md:text-3xl',
+  large: 'text-3xl md:text-5xl'
+};
+
+const fontSizeLabels: Record<TitleFontSize, string> = {
+  small: 'S',
+  medium: 'M',
+  large: 'L'
 };
 
 const colorClasses: Record<TitleColor, string> = {
@@ -89,9 +106,11 @@ export const CoverPagePreview = ({
   titlePosition,
   titleFontStyle,
   titleColor,
+  titleFontSize,
   onPositionChange,
   onFontStyleChange,
   onColorChange,
+  onFontSizeChange,
 }: CoverPagePreviewProps) => {
   const [isHovering, setIsHovering] = useState(false);
   const [showEditInput, setShowEditInput] = useState(false);
@@ -148,7 +167,7 @@ export const CoverPagePreview = ({
         </div>
       ) : (
         <h1
-          className={`text-2xl md:text-3xl font-bold text-center px-6 leading-tight ${fontClasses[titleFontStyle]} ${colorClasses[titleColor]}`}
+          className={`font-bold text-center px-6 leading-tight ${fontClasses[titleFontStyle]} ${fontSizeClasses[titleFontSize]} ${colorClasses[titleColor]}`}
           style={colorStyles[titleColor]}
         >
           {coverTitle}
@@ -304,7 +323,7 @@ export const CoverPagePreview = ({
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-white/80">Font:</span>
                       <div className="flex gap-1">
-                        {(['classic', 'modern', 'playful', 'bold'] as TitleFontStyle[]).map((style) => (
+                      {(['classic', 'modern', 'playful', 'bold', 'comic'] as TitleFontStyle[]).map((style) => (
                           <Button
                             key={style}
                             variant={titleFontStyle === style ? 'default' : 'secondary'}
@@ -313,6 +332,24 @@ export const CoverPagePreview = ({
                             onClick={() => onFontStyleChange(style)}
                           >
                             {fontLabels[style]}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Size controls */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-white/80">Size:</span>
+                      <div className="flex gap-1">
+                        {(['small', 'medium', 'large'] as TitleFontSize[]).map((size) => (
+                          <Button
+                            key={size}
+                            variant={titleFontSize === size ? 'default' : 'secondary'}
+                            size="sm"
+                            className="h-7 w-7 p-0 text-xs"
+                            onClick={() => onFontSizeChange(size)}
+                          >
+                            {fontSizeLabels[size]}
                           </Button>
                         ))}
                       </div>
@@ -450,7 +487,7 @@ export const CoverPagePreview = ({
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-muted-foreground w-14">Font:</span>
                     <div className="flex gap-1 flex-wrap">
-                      {(['classic', 'modern', 'playful', 'bold'] as TitleFontStyle[]).map((style) => (
+                      {(['classic', 'modern', 'playful', 'bold', 'comic'] as TitleFontStyle[]).map((style) => (
                         <Button
                           key={style}
                           variant={titleFontStyle === style ? 'default' : 'outline'}
@@ -459,6 +496,24 @@ export const CoverPagePreview = ({
                           onClick={() => onFontStyleChange(style)}
                         >
                           {fontLabels[style]}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Font Size */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-14">Size:</span>
+                    <div className="flex gap-1">
+                      {(['small', 'medium', 'large'] as TitleFontSize[]).map((size) => (
+                        <Button
+                          key={size}
+                          variant={titleFontSize === size ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-7 w-7 p-0 text-xs"
+                          onClick={() => onFontSizeChange(size)}
+                        >
+                          {fontSizeLabels[size]}
                         </Button>
                       ))}
                     </div>
