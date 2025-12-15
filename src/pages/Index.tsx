@@ -4,6 +4,7 @@ import { MetadataBar } from "@/components/MetadataBar";
 import { StoryPagePreview } from "@/components/StoryPagePreview";
 import { PageThumbnails, StoryPage } from "@/components/PageThumbnails";
 import { SaveStoryDialog } from "@/components/SaveStoryDialog";
+import { CoverPagePreview } from "@/components/CoverPagePreview";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -42,6 +43,12 @@ const Index = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingStory, setIsLoadingStory] = useState(false);
 
+  // Cover page state
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [pendingCoverImage, setPendingCoverImage] = useState<string | null>(null);
+  const [isGeneratingCover, setIsGeneratingCover] = useState(false);
+  const [isEditingCover, setIsEditingCover] = useState(false);
+
   const currentPage = pages[currentPageIndex];
 
   // Redirect unauthenticated users to auth page
@@ -68,6 +75,7 @@ const Index = () => {
       setStoryTitle(story.title);
       setCharacterImages(story.character_image_url ? [story.character_image_url] : []);
       setBackgroundImages(story.background_image_urls || []);
+      setCoverImage(story.cover_image_url || null);
       
       if (loadedPages.length > 0) {
         setPages(loadedPages.map(p => ({
@@ -148,14 +156,18 @@ const Index = () => {
         });
       }
 
-      // Get cover image (first page with image)
-      const coverImage = pageDataForSave.find(p => p.image_url)?.image_url || null;
+      // Upload cover image if it's base64
+      let coverImageUrl = coverImage;
+      if (coverImageUrl && coverImageUrl.startsWith("data:")) {
+        const uploaded = await uploadImageToStorage(coverImageUrl, `cover-${Date.now()}.png`);
+        if (uploaded) coverImageUrl = uploaded;
+      }
 
       if (currentStoryId) {
         // Update existing story
         await updateStory(currentStoryId, {
           title,
-          cover_image_url: coverImage,
+          cover_image_url: coverImageUrl,
           character_image_url: characterImageUrl,
           background_image_urls: backgroundImages,
         });
@@ -166,7 +178,7 @@ const Index = () => {
         // Create new story
         const newStory = await createStory(title, characterImageUrl || undefined, backgroundImages.length > 0 ? backgroundImages : undefined);
         if (newStory) {
-          await updateStory(newStory.id, { cover_image_url: coverImage });
+          await updateStory(newStory.id, { cover_image_url: coverImageUrl });
           await saveStoryPages(newStory.id, pageDataForSave);
           setCurrentStoryId(newStory.id);
           setStoryTitle(title);
@@ -336,6 +348,92 @@ const Index = () => {
     updateCurrentPage({ text: newText });
   };
 
+  // Cover page handlers
+  const handleGenerateCover = async () => {
+    if (characterImages.length === 0) {
+      toast.error("Please upload a character image first");
+      return;
+    }
+    if (!storyTitle.trim() || storyTitle === "Untitled Story") {
+      toast.error("Please enter a story title first");
+      return;
+    }
+
+    setIsGeneratingCover(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-cover-page", {
+        body: {
+          characterImage: characterImages[0],
+          title: storyTitle.trim(),
+          backgroundImages: backgroundImages,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Failed to generate cover");
+      }
+
+      if (data?.image) {
+        setCoverImage(data.image);
+        toast.success("Cover generated!");
+      } else {
+        throw new Error("No cover image received");
+      }
+    } catch (error: any) {
+      console.error("Cover generation error:", error);
+      toast.error(error.message || "Failed to generate cover. Please try again.");
+    } finally {
+      setIsGeneratingCover(false);
+    }
+  };
+
+  const handleEditCover = async (editPrompt: string) => {
+    if (!coverImage) return;
+
+    setIsEditingCover(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("edit-cover-image", {
+        body: {
+          currentImage: coverImage,
+          editPrompt: editPrompt,
+          characterImage: characterImages.length > 0 ? characterImages[0] : undefined,
+          title: storyTitle,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Failed to edit cover");
+      }
+
+      if (data?.image) {
+        setPendingCoverImage(data.image);
+        toast.success("Cover edit complete! Compare and choose.");
+      } else {
+        throw new Error("No edited cover received");
+      }
+    } catch (error: any) {
+      console.error("Cover edit error:", error);
+      toast.error(error.message || "Failed to edit cover. Please try again.");
+    } finally {
+      setIsEditingCover(false);
+    }
+  };
+
+  const handleAcceptCover = () => {
+    if (pendingCoverImage) {
+      setCoverImage(pendingCoverImage);
+      setPendingCoverImage(null);
+      toast.success("New cover accepted!");
+    }
+  };
+
+  const handleDiscardCover = () => {
+    setPendingCoverImage(null);
+    toast.info("Cover edit discarded, keeping original.");
+  };
+
   const renderPageToBlob = (page: StoryPage): Promise<Blob | null> => {
     return new Promise((resolve) => {
       if (!page.image) {
@@ -488,6 +586,8 @@ const Index = () => {
     setCurrentPageIndex(0);
     setCurrentStoryId(null);
     setStoryTitle("Untitled Story");
+    setCoverImage(null);
+    setPendingCoverImage(null);
     navigate("/", { replace: true });
   };
 
@@ -580,6 +680,22 @@ const Index = () => {
           backgroundImages={backgroundImages}
           onBackgroundImagesChange={setBackgroundImages}
         />
+
+        {/* Cover Page Section */}
+        <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
+          <CoverPagePreview
+            coverImage={coverImage}
+            pendingCoverImage={pendingCoverImage}
+            title={storyTitle}
+            isGenerating={isGeneratingCover}
+            isEditing={isEditingCover}
+            canGenerate={characterImages.length > 0 && storyTitle.trim() !== "" && storyTitle !== "Untitled Story"}
+            onGenerate={handleGenerateCover}
+            onEdit={handleEditCover}
+            onAccept={handleAcceptCover}
+            onDiscard={handleDiscardCover}
+          />
+        </div>
 
         {/* Page Thumbnails - Full width horizontal */}
         <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
