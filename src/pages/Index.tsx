@@ -954,6 +954,7 @@ const Index = () => {
                 isGenerating={isGeneratingCover}
                 isEditing={isEditingCover}
                 canGenerate={characterImages.length > 0 && storyTitle.trim() !== "" && storyTitle !== "Untitled Story"}
+                hasCharacterImage={characterImages.length > 0}
                 onGenerate={handleGenerateCover}
                 onEdit={handleEditCover}
                 onAccept={handleAcceptCover}

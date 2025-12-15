@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Pencil, Check, X, BookOpen, ImageIcon, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd } from "lucide-react";
+import { Loader2, Pencil, Check, X, BookOpen, ImageIcon, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, CheckCircle2, Circle, Sparkles } from "lucide-react";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 
 export type TitlePosition = 'top' | 'center' | 'bottom';
@@ -16,6 +16,7 @@ interface CoverPagePreviewProps {
   isGenerating: boolean;
   isEditing: boolean;
   canGenerate: boolean;
+  hasCharacterImage: boolean;
   onGenerate: () => void;
   onEdit: (prompt: string) => void;
   onAccept: () => void;
@@ -79,6 +80,7 @@ export const CoverPagePreview = ({
   isGenerating,
   isEditing,
   canGenerate,
+  hasCharacterImage,
   onGenerate,
   onEdit,
   onAccept,
@@ -378,14 +380,118 @@ export const CoverPagePreview = ({
                 )}
               </>
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
-                <ImageIcon className="w-12 h-12 mb-3 opacity-50" />
-                <p className="text-sm">No cover generated yet</p>
-                <p className="text-xs mt-1">
-                  {canGenerate
-                    ? "Click 'Generate Cover' to create one"
-                    : "Add a character image and title first"}
-                </p>
+              <div className="w-full h-full flex flex-col p-4 bg-gradient-to-br from-muted/50 to-muted">
+                {/* Requirements Checklist */}
+                <div className="space-y-2 mb-4">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Requirements</p>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 text-sm">
+                      {title && title !== "Untitled Story" ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <Circle className="w-4 h-4 text-muted-foreground" />
+                      )}
+                      <span className={title && title !== "Untitled Story" ? "text-foreground" : "text-muted-foreground"}>
+                        Story Title: {title && title !== "Untitled Story" ? `"${title}"` : "(enter in header)"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      {hasCharacterImage ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <Circle className="w-4 h-4 text-muted-foreground" />
+                      )}
+                      <span className={hasCharacterImage ? "text-foreground" : "text-muted-foreground"}>
+                        Character Image: {hasCharacterImage ? "Uploaded" : "(upload above)"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Style Options */}
+                <div className="space-y-3 flex-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Title Style</p>
+                  
+                  {/* Position */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-14">Position:</span>
+                    <div className="flex gap-1">
+                      <Button
+                        variant={titlePosition === 'top' ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => onPositionChange('top')}
+                        title="Top"
+                      >
+                        <AlignVerticalJustifyStart className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant={titlePosition === 'center' ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => onPositionChange('center')}
+                        title="Center"
+                      >
+                        <AlignVerticalJustifyCenter className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant={titlePosition === 'bottom' ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => onPositionChange('bottom')}
+                        title="Bottom"
+                      >
+                        <AlignVerticalJustifyEnd className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Font Style */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-14">Font:</span>
+                    <div className="flex gap-1 flex-wrap">
+                      {(['classic', 'modern', 'playful', 'bold'] as TitleFontStyle[]).map((style) => (
+                        <Button
+                          key={style}
+                          variant={titleFontStyle === style ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => onFontStyleChange(style)}
+                        >
+                          {fontLabels[style]}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Color */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-14">Color:</span>
+                    <div className="flex gap-1">
+                      {(['white', 'gold', 'black-outline'] as TitleColor[]).map((color) => (
+                        <Button
+                          key={color}
+                          variant={titleColor === color ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => onColorChange(color)}
+                        >
+                          {colorLabels[color]}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Generate Button */}
+                <Button
+                  onClick={onGenerate}
+                  disabled={!canGenerate || isGenerating}
+                  className="w-full mt-3"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate Cover
+                </Button>
               </div>
             )}
           </AspectRatio>
