@@ -1,6 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Plus, BookOpen } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Plus, BookOpen, ImageIcon } from "lucide-react";
 
 export interface StoryPage {
   id: string;
@@ -17,6 +16,9 @@ interface PageThumbnailsProps {
   onAddPage: () => void;
   maxPages?: number;
   className?: string;
+  coverImage?: string | null;
+  onCoverSelect?: () => void;
+  isCoverSelected?: boolean;
 }
 
 export function PageThumbnails({
@@ -26,6 +28,9 @@ export function PageThumbnails({
   onAddPage,
   maxPages = 18,
   className,
+  coverImage,
+  onCoverSelect,
+  isCoverSelected = false,
 }: PageThumbnailsProps) {
   const canAddPage = pages.length < maxPages;
 
@@ -39,6 +44,38 @@ export function PageThumbnails({
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+        {/* Cover thumbnail as Page 0 */}
+        {onCoverSelect && (
+          <button
+            onClick={onCoverSelect}
+            className={cn(
+              "relative w-14 h-14 rounded-lg border-2 overflow-hidden transition-all flex-shrink-0",
+              "hover:ring-2 hover:ring-primary/50",
+              isCoverSelected
+                ? "border-primary ring-2 ring-primary/30"
+                : "border-border"
+            )}
+          >
+            {coverImage ? (
+              <img
+                src={coverImage}
+                alt="Cover"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-muted flex items-center justify-center">
+                <ImageIcon className="w-4 h-4 text-muted-foreground" />
+              </div>
+            )}
+            {/* Cover badge */}
+            <div className="absolute bottom-0 left-0 right-0 bg-primary/90 text-center py-0.5">
+              <span className="text-[10px] font-medium text-primary-foreground">
+                Cover
+              </span>
+            </div>
+          </button>
+        )}
+
         {pages.map((page, index) => (
           <button
             key={page.id}
@@ -46,7 +83,7 @@ export function PageThumbnails({
             className={cn(
               "relative w-14 h-14 rounded-lg border-2 overflow-hidden transition-all flex-shrink-0",
               "hover:ring-2 hover:ring-primary/50",
-              currentPageIndex === index
+              currentPageIndex === index && !isCoverSelected
                 ? "border-primary ring-2 ring-primary/30"
                 : "border-border"
             )}
