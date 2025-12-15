@@ -41,21 +41,20 @@ serve(async (req) => {
 
     const prompt = `Create a beautiful children's book COVER illustration in 16:9 landscape aspect ratio.
 
-STORY TITLE: "${title}"
+STORY THEME/CONTEXT: "${title}"
 
 CRITICAL REQUIREMENTS:
-1. The title "${title}" MUST be prominently displayed as decorative, whimsical, hand-drawn storybook text
-2. Position the title at the top or center of the image - make it large and eye-catching
-3. Feature the provided character (the protagonist) prominently in the center or foreground of the scene
-4. The character MUST look EXACTLY like the reference image - same features, colors, style, proportions
-5. Create a warm, magical, inviting atmosphere perfect for a children's book cover
-6. Use bright, engaging, cheerful colors
-7. Make it look like a professional book cover that would be on a bookshelf
-8. DO NOT include any other text like "written by", "by", author names, or any additional words
-9. The style should match the character's illustration style perfectly
-10. Add decorative elements around the title (stars, swirls, sparkles) to make it magical
+1. DO NOT include ANY text, words, letters, or titles in the image - the image must be completely text-free
+2. Feature the provided character (the protagonist) prominently in the scene
+3. The character MUST look EXACTLY like the reference image - same features, colors, style, proportions
+4. Create a warm, magical, inviting atmosphere perfect for a children's book cover
+5. Use bright, engaging, cheerful colors
+6. The style should match the character's illustration style perfectly
+7. Leave some open/softer space at the top or center for title text to be overlaid later
+8. Create a composition that works well as a book cover background
+9. Add decorative elements (stars, swirls, sparkles, nature elements) to make it magical
 
-This is a COVER image, so make it visually stunning and captivating.`;
+This is a COVER image background - make it visually stunning but completely TEXT-FREE.`;
 
     const messageContent: any[] = [
       { type: "text", text: prompt },
