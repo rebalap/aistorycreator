@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.edit-story-image]
 verify_jwt = false
+
+[functions.generate-cover-page]
+verify_jwt = false
+
+[functions.edit-cover-image]
+verify_jwt = false
