@@ -131,7 +131,8 @@ export default {
 			playfair: ['Playfair Display', 'serif'],
 			lobster: ['Lobster', 'cursive'],
 			bebas: ['Bebas Neue', 'sans-serif'],
-			inter: ['Inter', 'sans-serif']
+			inter: ['Inter', 'sans-serif'],
+			comic: ['Comic Neue', 'cursive']
 		}
   	}
   },
