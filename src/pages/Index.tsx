@@ -4,7 +4,7 @@ import { MetadataBar } from "@/components/MetadataBar";
 import { StoryPagePreview } from "@/components/StoryPagePreview";
 import { PageThumbnails, StoryPage } from "@/components/PageThumbnails";
 import { SaveStoryDialog } from "@/components/SaveStoryDialog";
-import { CoverPagePreview } from "@/components/CoverPagePreview";
+import { CoverPagePreview, TitlePosition, TitleFontStyle } from "@/components/CoverPagePreview";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -50,6 +50,8 @@ const Index = () => {
   const [isGeneratingCover, setIsGeneratingCover] = useState(false);
   const [isEditingCover, setIsEditingCover] = useState(false);
   const [coverTitle, setCoverTitle] = useState<string>("Untitled Story");
+  const [titlePosition, setTitlePosition] = useState<TitlePosition>('center');
+  const [titleFontStyle, setTitleFontStyle] = useState<TitleFontStyle>('classic');
 
   const currentPage = pages[currentPageIndex];
 
@@ -549,6 +551,21 @@ const Index = () => {
   const renderCoverToBlob = async (): Promise<Blob | null> => {
     if (!coverImage) return null;
 
+    // Font mapping for canvas
+    const fontMapping: Record<TitleFontStyle, string> = {
+      classic: '"Playfair Display", serif',
+      modern: '"Inter", sans-serif',
+      playful: '"Lobster", cursive',
+      bold: '"Bebas Neue", sans-serif'
+    };
+
+    // Preload the font
+    try {
+      await document.fonts.load(`bold 80px ${fontMapping[titleFontStyle]}`);
+    } catch (e) {
+      console.warn("Font preload failed, using fallback");
+    }
+
     return new Promise((resolve) => {
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
@@ -566,16 +583,26 @@ const Index = () => {
         // Draw cover image
         ctx.drawImage(img, 0, 0, width, height);
 
+        // Position mapping for Y coordinate
+        const positionY: Record<TitlePosition, number> = {
+          top: height * 0.15,
+          center: height / 2,
+          bottom: height * 0.85
+        };
+
+        // Font size varies by style
+        const fontSize = titleFontStyle === 'bold' ? 100 : 80;
+
         // Draw title text
         ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 80px Georgia, serif";
+        ctx.font = `bold ${fontSize}px ${fontMapping[titleFontStyle]}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
         ctx.shadowBlur = 15;
         ctx.shadowOffsetX = 3;
         ctx.shadowOffsetY = 3;
-        ctx.fillText(coverTitle, width / 2, height / 2);
+        ctx.fillText(coverTitle, width / 2, positionY[titlePosition]);
 
         canvas.toBlob((blob) => resolve(blob), "image/png");
       };
@@ -895,6 +922,10 @@ const Index = () => {
                 onAccept={handleAcceptCover}
                 onDiscard={handleDiscardCover}
                 onTitleChange={setCoverTitle}
+                titlePosition={titlePosition}
+                titleFontStyle={titleFontStyle}
+                onPositionChange={setTitlePosition}
+                onFontStyleChange={setTitleFontStyle}
               />
                 {coverImage && !pendingCoverImage && (
                   <Button
