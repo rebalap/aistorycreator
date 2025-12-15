@@ -43,17 +43,20 @@ serve(async (req) => {
 
 EDIT INSTRUCTION: ${editPrompt}
 
+${title ? `STORY THEME/CONTEXT: "${title}"` : ""}
+
 CRITICAL REQUIREMENTS:
-1. Maintain the 16:9 landscape aspect ratio
-2. This is a BOOK COVER - keep it visually stunning and professional
-3. Keep the same overall illustration style and art direction
-4. The protagonist/character should remain consistent in appearance
-5. ${title ? `The title "${title}" should remain visible and prominent unless the edit specifically asks to change it` : "Keep any existing title text visible"}
+1. DO NOT include ANY text, words, letters, or titles in the image - the image must be completely text-free
+2. Maintain the 16:9 landscape aspect ratio
+3. This is a BOOK COVER - keep it visually stunning and professional
+4. Keep the same overall illustration style and art direction
+5. The protagonist/character should remain consistent in appearance
 6. Preserve the warm, magical, children's book aesthetic
 7. Make only the changes specified in the edit instruction
 8. Keep bright, engaging colors appropriate for children
+9. Leave some open/softer space for title text to be overlaid later
 
-Apply the edit while maintaining cover quality.`;
+Apply the edit while maintaining cover quality. The image must be TEXT-FREE.`;
 
     const messageContent: any[] = [
       { type: "text", text: prompt },
