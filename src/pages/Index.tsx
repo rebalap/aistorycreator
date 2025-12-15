@@ -544,23 +544,52 @@ const Index = () => {
     toast.success("Story page downloaded!");
   };
 
+  const handleDownloadCover = async () => {
+    if (!coverImage) return;
+
+    try {
+      const response = await fetch(coverImage);
+      const blob = await response.blob();
+      
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${storyTitle || "cover"}-cover-${Date.now()}.png`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      toast.success("Cover downloaded!");
+    } catch (error) {
+      toast.error("Failed to download cover");
+    }
+  };
+
   const handleDownloadAll = async () => {
     const pagesWithImages = pages.filter((page) => page.image);
-    if (pagesWithImages.length === 0) {
-      toast.error("No pages with images to download");
+    const hasCover = !!coverImage;
+    const totalItems = pagesWithImages.length + (hasCover ? 1 : 0);
+    
+    if (totalItems === 0) {
+      toast.error("No pages or cover to download");
       return;
     }
 
-    const loadingToast = toast.loading(`Preparing ${pagesWithImages.length} pages...`);
+    const loadingToast = toast.loading(`Preparing ${totalItems} items...`);
 
     try {
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
 
+      // Add cover image first (as 00-cover.png)
+      if (coverImage) {
+        const response = await fetch(coverImage);
+        const coverBlob = await response.blob();
+        zip.file("00-cover.png", coverBlob);
+      }
+
+      // Add story pages
       for (const page of pagesWithImages) {
         const blob = await renderPageToBlob(page);
         if (blob) {
-          zip.file(`story-page-${page.pageNumber}.png`, blob);
+          zip.file(`${String(page.pageNumber).padStart(2, '0')}-page-${page.pageNumber}.png`, blob);
         }
       }
 
@@ -573,7 +602,7 @@ const Index = () => {
       URL.revokeObjectURL(link.href);
 
       toast.dismiss(loadingToast);
-      toast.success(`Downloaded ${pagesWithImages.length} pages!`);
+      toast.success(`Downloaded ${totalItems} items!`);
     } catch (error) {
       toast.dismiss(loadingToast);
       toast.error("Failed to create ZIP file");
@@ -648,10 +677,10 @@ const Index = () => {
               variant="outline"
               size="sm"
               onClick={handleDownloadAll}
-              disabled={pages.filter((p) => p.image).length === 0}
+              disabled={pages.filter((p) => p.image).length === 0 && !coverImage}
             >
               <Download className="w-4 h-4 mr-2" />
-              Download All ({pages.filter((p) => p.image).length})
+              Download All ({pages.filter((p) => p.image).length + (coverImage ? 1 : 0)})
             </Button>
             <Button variant="outline" size="sm" onClick={handleReset}>
               <RefreshCw className="w-4 h-4 mr-2" />
@@ -682,22 +711,6 @@ const Index = () => {
           onBackgroundImagesChange={setBackgroundImages}
         />
 
-        {/* Cover Page Section */}
-        <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
-          <CoverPagePreview
-            coverImage={coverImage}
-            pendingCoverImage={pendingCoverImage}
-            title={storyTitle}
-            isGenerating={isGeneratingCover}
-            isEditing={isEditingCover}
-            canGenerate={characterImages.length > 0 && storyTitle.trim() !== "" && storyTitle !== "Untitled Story"}
-            onGenerate={handleGenerateCover}
-            onEdit={handleEditCover}
-            onAccept={handleAcceptCover}
-            onDiscard={handleDiscardCover}
-          />
-        </div>
-
         {/* Page Thumbnails - Full width horizontal */}
         <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
           <PageThumbnails
@@ -715,86 +728,164 @@ const Index = () => {
           />
         </div>
 
-        {/* Story Page Editor - Two columns */}
+        {/* Editor Section - Two columns */}
         <div className="grid lg:grid-cols-2 gap-4">
-          {/* Left: Page Input */}
+          {/* Left: Input/Controls */}
           <div className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-foreground">
-                  Page {currentPage.pageNumber} Story Line
-                </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Enter text for this page
-                </p>
-              </div>
-              {pages.length > 1 && (
+            {isCoverSelected ? (
+              // Cover Page Controls
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground">Cover Page</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      16:9 book cover with title
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 py-4">
+                  <p className="text-sm text-muted-foreground">
+                    The cover uses your story title: <span className="font-medium text-foreground">"{storyTitle}"</span>
+                  </p>
+                </div>
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDeletePage}
-                  className="text-destructive hover:text-destructive"
+                  onClick={handleGenerateCover}
+                  disabled={
+                    isGeneratingCover ||
+                    isEditingCover ||
+                    pendingCoverImage !== null ||
+                    characterImages.length === 0 ||
+                    !storyTitle.trim() ||
+                    storyTitle === "Untitled Story"
+                  }
+                  className="w-full"
+                  size="lg"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  {isGeneratingCover ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                      {coverImage ? "Regenerating..." : "Generating..."}
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      {coverImage ? "Regenerate Cover" : "Generate Cover"}
+                    </>
+                  )}
                 </Button>
-              )}
-            </div>
-            <Textarea
-              value={currentPage.text}
-              onChange={(e) => handleTextChange(e.target.value)}
-              placeholder="Once upon a time, in a magical forest..."
-              className="min-h-[140px] resize-none font-serif text-base"
-            />
-            <Button
-              onClick={handleGenerate}
-              disabled={
-                isGenerating ||
-                isEditingImage ||
-                currentPage.pendingImage !== null ||
-                characterImages.length === 0 ||
-                !currentPage.text.trim()
-              }
-              className="w-full"
-              size="lg"
-            >
-              {isGenerating ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Generate Page {currentPage.pageNumber}
-                </>
-              )}
-            </Button>
+              </>
+            ) : (
+              // Story Page Controls
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground">
+                      Page {currentPage.pageNumber} Story Line
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Enter text for this page
+                    </p>
+                  </div>
+                  {pages.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDeletePage}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+                <Textarea
+                  value={currentPage.text}
+                  onChange={(e) => handleTextChange(e.target.value)}
+                  placeholder="Once upon a time, in a magical forest..."
+                  className="min-h-[140px] resize-none font-serif text-base"
+                />
+                <Button
+                  onClick={handleGenerate}
+                  disabled={
+                    isGenerating ||
+                    isEditingImage ||
+                    currentPage.pendingImage !== null ||
+                    characterImages.length === 0 ||
+                    !currentPage.text.trim()
+                  }
+                  className="w-full"
+                  size="lg"
+                >
+                  {isGenerating ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate Page {currentPage.pageNumber}
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Right: Preview */}
           <div className="space-y-3">
-            <StoryPagePreview
-              image={currentPage.image}
-              pendingImage={currentPage.pendingImage}
-              text={currentPage.text}
-              isLoading={isGenerating}
-              isEditingImage={isEditingImage}
-              onEditImage={currentPage.image && !currentPage.pendingImage ? handleEditImage : undefined}
-              onAcceptImage={handleAcceptImage}
-              onDiscardImage={handleDiscardImage}
-              onTextChange={handleTextChange}
-            />
-
-            {currentPage.image && !currentPage.pendingImage && (
-              <Button
-                onClick={handleDownload}
-                variant="outline"
-                className="w-full"
-                disabled={isEditingImage}
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Download Page {currentPage.pageNumber}
-              </Button>
+            {isCoverSelected ? (
+              // Cover Page Preview
+              <>
+                <CoverPagePreview
+                  coverImage={coverImage}
+                  pendingCoverImage={pendingCoverImage}
+                  title={storyTitle}
+                  isGenerating={isGeneratingCover}
+                  isEditing={isEditingCover}
+                  canGenerate={characterImages.length > 0 && storyTitle.trim() !== "" && storyTitle !== "Untitled Story"}
+                  onGenerate={handleGenerateCover}
+                  onEdit={handleEditCover}
+                  onAccept={handleAcceptCover}
+                  onDiscard={handleDiscardCover}
+                />
+                {coverImage && !pendingCoverImage && (
+                  <Button
+                    onClick={handleDownloadCover}
+                    variant="outline"
+                    className="w-full"
+                    disabled={isEditingCover}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Cover
+                  </Button>
+                )}
+              </>
+            ) : (
+              // Story Page Preview
+              <>
+                <StoryPagePreview
+                  image={currentPage.image}
+                  pendingImage={currentPage.pendingImage}
+                  text={currentPage.text}
+                  isLoading={isGenerating}
+                  isEditingImage={isEditingImage}
+                  onEditImage={currentPage.image && !currentPage.pendingImage ? handleEditImage : undefined}
+                  onAcceptImage={handleAcceptImage}
+                  onDiscardImage={handleDiscardImage}
+                  onTextChange={handleTextChange}
+                />
+                {currentPage.image && !currentPage.pendingImage && (
+                  <Button
+                    onClick={handleDownload}
+                    variant="outline"
+                    className="w-full"
+                    disabled={isEditingImage}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Page {currentPage.pageNumber}
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>
