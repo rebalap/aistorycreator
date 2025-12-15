@@ -6,6 +6,7 @@ import { AspectRatio } from "@/components/ui/aspect-ratio";
 
 export type TitlePosition = 'top' | 'center' | 'bottom';
 export type TitleFontStyle = 'classic' | 'modern' | 'playful' | 'bold';
+export type TitleColor = 'white' | 'gold' | 'black-outline';
 
 interface CoverPagePreviewProps {
   coverImage: string | null;
@@ -22,8 +23,10 @@ interface CoverPagePreviewProps {
   onTitleChange: (title: string) => void;
   titlePosition: TitlePosition;
   titleFontStyle: TitleFontStyle;
+  titleColor: TitleColor;
   onPositionChange: (position: TitlePosition) => void;
   onFontStyleChange: (style: TitleFontStyle) => void;
+  onColorChange: (color: TitleColor) => void;
 }
 
 const positionClasses: Record<TitlePosition, string> = {
@@ -46,6 +49,28 @@ const fontLabels: Record<TitleFontStyle, string> = {
   bold: 'Bold'
 };
 
+const colorClasses: Record<TitleColor, string> = {
+  white: 'text-white',
+  gold: 'text-amber-400',
+  'black-outline': 'text-black'
+};
+
+const colorStyles: Record<TitleColor, React.CSSProperties> = {
+  white: { textShadow: "2px 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.7)" },
+  gold: { textShadow: "2px 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.7)" },
+  'black-outline': { 
+    textShadow: "none",
+    WebkitTextStroke: "2px white",
+    paintOrder: "stroke fill"
+  }
+};
+
+const colorLabels: Record<TitleColor, string> = {
+  white: 'White',
+  gold: 'Gold',
+  'black-outline': 'Black'
+};
+
 export const CoverPagePreview = ({
   coverImage,
   pendingCoverImage,
@@ -61,8 +86,10 @@ export const CoverPagePreview = ({
   onTitleChange,
   titlePosition,
   titleFontStyle,
+  titleColor,
   onPositionChange,
   onFontStyleChange,
+  onColorChange,
 }: CoverPagePreviewProps) => {
   const [isHovering, setIsHovering] = useState(false);
   const [showEditInput, setShowEditInput] = useState(false);
@@ -119,8 +146,8 @@ export const CoverPagePreview = ({
         </div>
       ) : (
         <h1
-          className={`text-2xl md:text-3xl font-bold text-white text-center px-6 leading-tight ${fontClasses[titleFontStyle]}`}
-          style={{ textShadow: "2px 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.7)" }}
+          className={`text-2xl md:text-3xl font-bold text-center px-6 leading-tight ${fontClasses[titleFontStyle]} ${colorClasses[titleColor]}`}
+          style={colorStyles[titleColor]}
         >
           {coverTitle}
         </h1>
@@ -284,6 +311,24 @@ export const CoverPagePreview = ({
                             onClick={() => onFontStyleChange(style)}
                           >
                             {fontLabels[style]}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Color controls */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-white/80">Color:</span>
+                      <div className="flex gap-1">
+                        {(['white', 'gold', 'black-outline'] as TitleColor[]).map((color) => (
+                          <Button
+                            key={color}
+                            variant={titleColor === color ? 'default' : 'secondary'}
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => onColorChange(color)}
+                          >
+                            {colorLabels[color]}
                           </Button>
                         ))}
                       </div>

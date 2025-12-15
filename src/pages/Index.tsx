@@ -4,7 +4,7 @@ import { MetadataBar } from "@/components/MetadataBar";
 import { StoryPagePreview } from "@/components/StoryPagePreview";
 import { PageThumbnails, StoryPage } from "@/components/PageThumbnails";
 import { SaveStoryDialog } from "@/components/SaveStoryDialog";
-import { CoverPagePreview, TitlePosition, TitleFontStyle } from "@/components/CoverPagePreview";
+import { CoverPagePreview, TitlePosition, TitleFontStyle, TitleColor } from "@/components/CoverPagePreview";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,7 @@ const Index = () => {
   const [coverTitle, setCoverTitle] = useState<string>("Untitled Story");
   const [titlePosition, setTitlePosition] = useState<TitlePosition>('center');
   const [titleFontStyle, setTitleFontStyle] = useState<TitleFontStyle>('classic');
+  const [titleColor, setTitleColor] = useState<TitleColor>('white');
 
   const currentPage = pages[currentPageIndex];
 
@@ -580,8 +581,23 @@ const Index = () => {
       img.crossOrigin = "anonymous";
 
       img.onload = () => {
-        // Draw cover image
-        ctx.drawImage(img, 0, 0, width, height);
+        // Draw cover image with object-cover behavior
+        const imgAspect = img.width / img.height;
+        const canvasAspect = width / height;
+
+        let sx = 0, sy = 0, sWidth = img.width, sHeight = img.height;
+
+        if (imgAspect > canvasAspect) {
+          // Image is wider - crop horizontally
+          sWidth = img.height * canvasAspect;
+          sx = (img.width - sWidth) / 2;
+        } else {
+          // Image is taller - crop vertically
+          sHeight = img.width / canvasAspect;
+          sy = (img.height - sHeight) / 2;
+        }
+
+        ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, width, height);
 
         // Position mapping for Y coordinate
         const positionY: Record<TitlePosition, number> = {
@@ -593,16 +609,37 @@ const Index = () => {
         // Font size varies by style
         const fontSize = titleFontStyle === 'bold' ? 100 : 80;
 
+        // Color mapping
+        const colorMapping: Record<TitleColor, { fill: string; stroke?: string; strokeWidth?: number }> = {
+          white: { fill: "#ffffff" },
+          gold: { fill: "#f59e0b" },
+          'black-outline': { fill: "#000000", stroke: "#ffffff", strokeWidth: 4 }
+        };
+
+        const colorConfig = colorMapping[titleColor];
+
         // Draw title text
-        ctx.fillStyle = "#ffffff";
         ctx.font = `bold ${fontSize}px ${fontMapping[titleFontStyle]}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
-        ctx.shadowBlur = 15;
-        ctx.shadowOffsetX = 3;
-        ctx.shadowOffsetY = 3;
-        ctx.fillText(coverTitle, width / 2, positionY[titlePosition]);
+        
+        if (colorConfig.stroke) {
+          // Draw stroke first for black-outline
+          ctx.strokeStyle = colorConfig.stroke;
+          ctx.lineWidth = colorConfig.strokeWidth || 4;
+          ctx.lineJoin = "round";
+          ctx.strokeText(coverTitle, width / 2, positionY[titlePosition]);
+          // Then fill
+          ctx.fillStyle = colorConfig.fill;
+          ctx.fillText(coverTitle, width / 2, positionY[titlePosition]);
+        } else {
+          ctx.fillStyle = colorConfig.fill;
+          ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
+          ctx.shadowBlur = 15;
+          ctx.shadowOffsetX = 3;
+          ctx.shadowOffsetY = 3;
+          ctx.fillText(coverTitle, width / 2, positionY[titlePosition]);
+        }
 
         canvas.toBlob((blob) => resolve(blob), "image/png");
       };
@@ -924,8 +961,10 @@ const Index = () => {
                 onTitleChange={setCoverTitle}
                 titlePosition={titlePosition}
                 titleFontStyle={titleFontStyle}
+                titleColor={titleColor}
                 onPositionChange={setTitlePosition}
                 onFontStyleChange={setTitleFontStyle}
+                onColorChange={setTitleColor}
               />
                 {coverImage && !pendingCoverImage && (
                   <Button
