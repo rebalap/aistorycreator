@@ -56,6 +56,43 @@ export const useStories = () => {
     fetchStories();
   }, [user]);
 
+  // Real-time subscription for concurrent multi-device sync
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('stories-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'stories',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setStories(prev => {
+              const exists = prev.some(s => s.id === (payload.new as Story).id);
+              if (exists) return prev;
+              return [payload.new as Story, ...prev];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            setStories(prev => prev.map(s => 
+              s.id === (payload.new as Story).id ? payload.new as Story : s
+            ));
+          } else if (payload.eventType === 'DELETE') {
+            setStories(prev => prev.filter(s => s.id !== (payload.old as Story).id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const createStory = async (title: string, characterImageUrl?: string, backgroundImageUrls?: string[]) => {
     if (!user) return null;
 
