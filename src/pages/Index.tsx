@@ -863,12 +863,27 @@ const Index = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowSaveDialog(true)}
-              disabled={!user}
+              onClick={() => {
+                if (currentStoryId) {
+                  handleSaveStory(storyTitle);
+                } else {
+                  setShowSaveDialog(true);
+                }
+              }}
+              disabled={!user || isSaving}
               title={!user ? "Sign in to save stories" : undefined}
             >
-              <Save className="w-4 h-4 mr-2" />
-              Save
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save
+                </>
+              )}
             </Button>
             <Button
               variant="outline"
