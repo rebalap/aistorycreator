@@ -1,18 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { MetadataBar } from "@/components/MetadataBar";
 import { StoryPagePreview } from "@/components/StoryPagePreview";
 import { PageThumbnails, StoryPage } from "@/components/PageThumbnails";
 import { SaveStoryDialog } from "@/components/SaveStoryDialog";
 import { CoverPagePreview, TitlePosition, TitleFontStyle, TitleFontSize } from "@/components/CoverPagePreview";
+import { RestoreDraftDialog } from "@/components/RestoreDraftDialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Download, RefreshCw, Trash2, Save, BookOpen, LogIn, LogOut, Loader2 } from "lucide-react";
+import { Sparkles, Download, RefreshCw, Trash2, Save, BookOpen, LogIn, LogOut, Loader2, Cloud, CloudOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useStories } from "@/hooks/useStories";
+import { useAutosave, StoryDraft } from "@/hooks/useAutosave";
 
 const createEmptyPage = (pageNumber: number): StoryPage => ({
   id: crypto.randomUUID(),
@@ -54,6 +56,48 @@ const Index = () => {
   const [titleFontStyle, setTitleFontStyle] = useState<TitleFontStyle>('classic');
   const [titleColor, setTitleColor] = useState<string>('#FFFFFF');
   const [titleFontSize, setTitleFontSize] = useState<TitleFontSize>('medium');
+
+  // Restore draft callback
+  const handleRestoreDraft = useCallback((draft: StoryDraft) => {
+    setStoryTitle(draft.storyTitle);
+    setCharacterImages(draft.characterImages);
+    setBackgroundImages(draft.backgroundImages);
+    setPages(draft.pages);
+    setCoverImage(draft.coverImage);
+    setCoverTitle(draft.coverTitle);
+    setTitlePosition(draft.titlePosition);
+    setTitleFontStyle(draft.titleFontStyle);
+    setTitleColor(draft.titleColor);
+    setTitleFontSize(draft.titleFontSize);
+    if (draft.currentStoryId) {
+      setCurrentStoryId(draft.currentStoryId);
+    }
+    toast.success("Draft restored!");
+  }, []);
+
+  // Autosave hook
+  const {
+    status: autosaveStatus,
+    hasDraft,
+    draftInfo,
+    restoreDraft,
+    discardDraft,
+    clearDraft,
+  } = useAutosave({
+    storyTitle,
+    characterImages,
+    backgroundImages,
+    pages,
+    coverImage,
+    coverTitle,
+    titlePosition,
+    titleFontStyle,
+    titleColor,
+    titleFontSize,
+    currentStoryId,
+    user,
+    onRestoreDraft: handleRestoreDraft,
+  });
 
   const currentPage = pages[currentPageIndex];
 
@@ -741,6 +785,7 @@ const Index = () => {
     setCoverTitle("Untitled Story");
     setCoverImage(null);
     setPendingCoverImage(null);
+    clearDraft();
     navigate("/", { replace: true });
   };
 
@@ -772,7 +817,36 @@ const Index = () => {
                 className="text-lg font-bold border-none bg-transparent p-0 h-auto focus-visible:ring-0"
                 placeholder="Story Title"
               />
-              <p className="text-xs text-muted-foreground">AI-powered multi-page stories</p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-muted-foreground">AI-powered multi-page stories</p>
+                <span className="text-xs text-muted-foreground">•</span>
+                <span className="text-xs flex items-center gap-1">
+                  {autosaveStatus === "saving" && (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                      <span className="text-muted-foreground">Saving...</span>
+                    </>
+                  )}
+                  {autosaveStatus === "saved" && (
+                    <>
+                      <Cloud className="w-3 h-3 text-green-500" />
+                      <span className="text-green-500">Saved</span>
+                    </>
+                  )}
+                  {autosaveStatus === "unsaved" && (
+                    <>
+                      <CloudOff className="w-3 h-3 text-muted-foreground" />
+                      <span className="text-muted-foreground">Unsaved</span>
+                    </>
+                  )}
+                  {autosaveStatus === "idle" && (
+                    <>
+                      <Cloud className="w-3 h-3 text-muted-foreground" />
+                      <span className="text-muted-foreground">Ready</span>
+                    </>
+                  )}
+                </span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -1032,6 +1106,16 @@ const Index = () => {
         defaultTitle={storyTitle}
         isSaving={isSaving}
       />
+
+      {hasDraft && draftInfo && (
+        <RestoreDraftDialog
+          open={hasDraft}
+          title={draftInfo.title}
+          lastSaved={draftInfo.lastSaved}
+          onRestore={restoreDraft}
+          onDiscard={discardDraft}
+        />
+      )}
     </main>
   );
 };
