@@ -3,6 +3,7 @@ import { StoryPage } from "@/components/PageThumbnails";
 import { TitlePosition, TitleFontStyle, TitleFontSize } from "@/components/CoverPagePreview";
 import { useStories } from "@/hooks/useStories";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export interface StoryDraft {
   storyTitle: string;
@@ -58,8 +59,6 @@ export const useAutosave = ({
 }: UseAutosaveProps) => {
   const { updateStory, saveStoryPages } = useStories();
   const [status, setStatus] = useState<AutosaveStatus>("idle");
-  const [hasDraft, setHasDraft] = useState(false);
-  const [draftInfo, setDraftInfo] = useState<{ title: string; lastSaved: Date } | null>(null);
   
   const localSaveTimeout = useRef<NodeJS.Timeout | null>(null);
   const dbSaveInterval = useRef<NodeJS.Timeout | null>(null);
@@ -173,7 +172,7 @@ export const useAutosave = ({
     }
   }, [currentStoryId, user, storyTitle, characterImages, backgroundImages, pages, coverImage, updateStory, saveStoryPages]);
 
-  // Check for existing draft on mount
+  // Check for existing draft on mount and auto-restore
   useEffect(() => {
     if (isInitialized.current) return;
     isInitialized.current = true;
@@ -182,23 +181,22 @@ export const useAutosave = ({
       const savedDraft = localStorage.getItem(DRAFT_KEY);
       if (savedDraft) {
         const draft: StoryDraft = JSON.parse(savedDraft);
-        // Only show restore dialog if draft has meaningful content
         const hasContent = draft.pages.some(p => p.text || p.image) || 
                          draft.characterImages.length > 0 || 
                          draft.coverImage;
         
         if (hasContent) {
-          setHasDraft(true);
-          setDraftInfo({
-            title: draft.storyTitle,
-            lastSaved: new Date(draft.lastSaved),
+          onRestoreDraft(draft);
+          lastSavedRef.current = getDraftHash();
+          toast.success("Draft restored", {
+            description: `Your previous work on "${draft.storyTitle || 'Untitled Story'}" has been restored.`,
           });
         }
       }
     } catch (error) {
-      console.error("Failed to check for draft:", error);
+      console.error("Failed to restore draft:", error);
     }
-  }, []);
+  }, [onRestoreDraft, getDraftHash]);
 
   // Debounced local save on state changes
   useEffect(() => {
@@ -259,27 +257,6 @@ export const useAutosave = ({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [getDraftHash]);
 
-  const restoreDraft = useCallback(() => {
-    try {
-      const savedDraft = localStorage.getItem(DRAFT_KEY);
-      if (savedDraft) {
-        const draft: StoryDraft = JSON.parse(savedDraft);
-        onRestoreDraft(draft);
-        lastSavedRef.current = getDraftHash();
-        setHasDraft(false);
-        setDraftInfo(null);
-      }
-    } catch (error) {
-      console.error("Failed to restore draft:", error);
-    }
-  }, [onRestoreDraft, getDraftHash]);
-
-  const discardDraft = useCallback(() => {
-    localStorage.removeItem(DRAFT_KEY);
-    setHasDraft(false);
-    setDraftInfo(null);
-  }, []);
-
   const clearDraft = useCallback(() => {
     localStorage.removeItem(DRAFT_KEY);
     lastSavedRef.current = "";
@@ -287,10 +264,6 @@ export const useAutosave = ({
 
   return {
     status,
-    hasDraft,
-    draftInfo,
-    restoreDraft,
-    discardDraft,
     clearDraft,
     saveToLocal,
   };

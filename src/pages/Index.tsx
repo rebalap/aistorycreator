@@ -5,7 +5,7 @@ import { StoryPagePreview } from "@/components/StoryPagePreview";
 import { PageThumbnails, StoryPage } from "@/components/PageThumbnails";
 import { SaveStoryDialog } from "@/components/SaveStoryDialog";
 import { CoverPagePreview, TitlePosition, TitleFontStyle, TitleFontSize } from "@/components/CoverPagePreview";
-import { RestoreDraftDialog } from "@/components/RestoreDraftDialog";
+
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -78,10 +78,6 @@ const Index = () => {
   // Autosave hook
   const {
     status: autosaveStatus,
-    hasDraft,
-    draftInfo,
-    restoreDraft,
-    discardDraft,
     clearDraft,
   } = useAutosave({
     storyTitle,
@@ -1122,15 +1118,6 @@ const Index = () => {
         isSaving={isSaving}
       />
 
-      {hasDraft && draftInfo && (
-        <RestoreDraftDialog
-          open={hasDraft}
-          title={draftInfo.title}
-          lastSaved={draftInfo.lastSaved}
-          onRestore={restoreDraft}
-          onDiscard={discardDraft}
-        />
-      )}
     </main>
   );
 };
