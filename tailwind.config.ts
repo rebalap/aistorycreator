@@ -132,7 +132,7 @@ export default {
 			lobster: ['Lobster', 'cursive'],
 			bebas: ['Bebas Neue', 'sans-serif'],
 			inter: ['Inter', 'sans-serif'],
-			comic: ['Comic Neue', 'cursive']
+			comic: ['Comic Sans MS', 'Comic Sans', 'cursive']
 		}
   	}
   },
