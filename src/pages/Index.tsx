@@ -612,7 +612,7 @@ const Index = () => {
       modern: '"Inter", sans-serif',
       playful: '"Lobster", cursive',
       bold: '"Bebas Neue", sans-serif',
-      comic: '"Comic Neue", cursive'
+      comic: '"Comic Sans MS", "Comic Sans", cursive'
     };
 
     // Font size mapping for canvas
