@@ -481,13 +481,23 @@ const Index = () => {
     toast.info("Cover edit discarded, keeping original.");
   };
 
-  const renderPageToBlob = (page: StoryPage): Promise<Blob | null> => {
-    return new Promise((resolve) => {
-      if (!page.image) {
-        resolve(null);
-        return;
-      }
+  const renderPageToBlob = async (page: StoryPage): Promise<Blob | null> => {
+    if (!page.image) return null;
 
+    const fontFamily = '"Comic Neue", "Comic Sans MS", cursive';
+    const fontSize = 48;
+
+    // Wait for all fonts to be ready first
+    await document.fonts.ready;
+    
+    // Then specifically load the font we need
+    try {
+      await document.fonts.load(`bold ${fontSize}px ${fontFamily}`);
+    } catch (e) {
+      console.warn("Font preload failed, using fallback");
+    }
+
+    return new Promise((resolve) => {
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
       if (!ctx) {
@@ -509,7 +519,10 @@ const Index = () => {
       const img = new Image();
       img.crossOrigin = "anonymous";
 
-      img.onload = () => {
+      img.onload = async () => {
+        // Wait for fonts again inside callback to ensure they're ready
+        await document.fonts.ready;
+
         const targetWidth = imageWidth;
         const targetHeight = height;
         const sourceWidth = img.naturalWidth;
@@ -535,7 +548,7 @@ const Index = () => {
         ctx.fillRect(imageWidth, 0, textAreaWidth, height);
 
         ctx.fillStyle = "#1a1a1a";
-        ctx.font = "bold 48px Georgia, serif";
+        ctx.font = `bold ${fontSize}px ${fontFamily}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
 
