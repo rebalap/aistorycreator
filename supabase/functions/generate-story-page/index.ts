@@ -30,7 +30,7 @@ serve(async (req) => {
     console.log(`Generating story page ${pageNumber || 1} with text:`, storyText.substring(0, 100) + "...");
 
     // Build the prompt for image generation with character consistency
-    let prompt = `Create a children's book illustration in a square 1:1 aspect ratio.
+    let prompt = `Create a children's book illustration in an 8:9 portrait aspect ratio (width:height = 8:9, approximately 960x1080 pixels).
 
 CRITICAL STYLE REQUIREMENTS:
 - Match EXACTLY the illustration style of the provided main character (protagonist) image
@@ -59,7 +59,7 @@ ADDITIONAL REQUIREMENTS:
 - The illustration should be in the same whimsical, storybook style as the character reference
 - Use similar colors, line work, and artistic techniques
 - Make it warm, inviting, and magical
-- Output the image in square format with no text`;
+- Output the image in 8:9 portrait format (tall rectangle, NOT square) with no text`;
 
     if (backgroundImages && backgroundImages.length > 0) {
       prompt += `

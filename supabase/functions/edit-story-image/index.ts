@@ -65,7 +65,9 @@ IMPORTANT:
 - Keep the same art style, color palette, and illustration technique
 - Do NOT include any text, words, letters, or captions in the image
 - Maintain the warm, inviting, magical storybook feel
-- Output in square 1:1 format with no text`;
+- Output in 8:9 portrait aspect ratio (width:height = 8:9, approximately 960x1080 pixels) to fit the story page image frame
+- The image frame is a tall portrait rectangle, NOT a square
+- Do NOT include any text, words, letters, or captions in the image`;
 
     // Build message content with all images
     const messageContent: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
