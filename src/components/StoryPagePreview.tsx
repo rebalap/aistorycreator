@@ -233,7 +233,7 @@ export function StoryPagePreview({
                     value={editedText}
                     onChange={(e) => setEditedText(e.target.value)}
                     className="flex-1 font-bold text-base resize-none"
-                    style={{ fontFamily: "'Comic Neue', 'Comic Sans MS', cursive" }}
+                    style={{ fontFamily: "'Comic Sans MS', 'Comic Sans', cursive" }}
                     autoFocus
                   />
                   <div className="flex gap-2 justify-end">
@@ -251,7 +251,7 @@ export function StoryPagePreview({
                 <>
                   <p 
                     className="text-sm md:text-lg lg:text-xl font-bold text-foreground leading-relaxed text-center"
-                    style={{ fontFamily: "'Comic Neue', 'Comic Sans MS', cursive" }}
+                    style={{ fontFamily: "'Comic Sans MS', 'Comic Sans', cursive" }}
                   >
                     {text || "Your story text will appear here..."}
                   </p>

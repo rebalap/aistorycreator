@@ -484,7 +484,7 @@ const Index = () => {
   const renderPageToBlob = async (page: StoryPage): Promise<Blob | null> => {
     if (!page.image) return null;
 
-    const fontFamily = '"Comic Neue", "Comic Sans MS", cursive';
+    const fontFamily = '"Comic Sans MS", "Comic Sans", cursive';
     const fontSize = 48;
 
     // Wait for all fonts to be ready first
