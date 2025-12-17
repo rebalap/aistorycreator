@@ -77,11 +77,11 @@ export function StoryPagePreview({
           {/* Original Image */}
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground text-center font-medium">Original</p>
-            <div className="aspect-[8/9] rounded-lg overflow-hidden border border-border bg-muted/30">
+            <div className="aspect-[8/9] rounded-lg overflow-hidden border border-border">
               <img
                 src={image!}
                 alt="Original"
-                className="w-full h-full object-contain"
+                className="w-full h-full object-cover"
               />
             </div>
           </div>
@@ -89,11 +89,11 @@ export function StoryPagePreview({
           {/* New Image */}
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground text-center font-medium">Edited</p>
-            <div className="aspect-[8/9] rounded-lg overflow-hidden border-2 border-primary bg-muted/30">
+            <div className="aspect-[8/9] rounded-lg overflow-hidden border-2 border-primary">
               <img
                 src={pendingImage}
                 alt="Edited"
-                className="w-full h-full object-contain"
+                className="w-full h-full object-cover"
               />
             </div>
           </div>
@@ -149,7 +149,7 @@ export function StoryPagePreview({
                   <img
                     src={image}
                     alt="Story illustration"
-                    className="w-full h-full object-contain bg-muted/30"
+                    className="w-full h-full object-cover"
                   />
                   {/* Edit overlay */}
                   {(isHoveringImage || showImageEditInput) && onEditImage && (
