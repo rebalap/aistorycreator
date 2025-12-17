@@ -609,9 +609,15 @@ const Index = () => {
       large: 120
     };
 
-    // Preload the font
+    const fontSize = fontSizeMapping[titleFontSize];
+    const fontFamily = fontMapping[titleFontStyle];
+
+    // Wait for all fonts to be ready first
+    await document.fonts.ready;
+    
+    // Then specifically load the font we need with the actual size
     try {
-      await document.fonts.load(`bold 80px ${fontMapping[titleFontStyle]}`);
+      await document.fonts.load(`bold ${fontSize}px ${fontFamily}`);
     } catch (e) {
       console.warn("Font preload failed, using fallback");
     }
@@ -629,7 +635,9 @@ const Index = () => {
       const img = new Image();
       img.crossOrigin = "anonymous";
 
-      img.onload = () => {
+      img.onload = async () => {
+        // Wait for fonts again inside callback to ensure they're ready
+        await document.fonts.ready;
         // Draw cover image with object-cover behavior
         const imgAspect = img.width / img.height;
         const canvasAspect = width / height;
@@ -655,9 +663,6 @@ const Index = () => {
           bottom: height * 0.85
         };
 
-        // Font size from user selection
-        const fontSize = fontSizeMapping[titleFontSize];
-
         // Color config based on luminance
         const isLightColor = (hex: string): boolean => {
           const r = parseInt(hex.slice(1, 3), 16);
@@ -672,7 +677,7 @@ const Index = () => {
           : { fill: titleColor, stroke: "#ffffff", strokeWidth: 4 };
 
         // Draw title text
-        ctx.font = `bold ${fontSize}px ${fontMapping[titleFontStyle]}`;
+        ctx.font = `bold ${fontSize}px ${fontFamily}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         
