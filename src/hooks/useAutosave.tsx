@@ -177,6 +177,13 @@ export const useAutosave = ({
     if (isInitialized.current) return;
     isInitialized.current = true;
 
+    // Don't restore draft if starting a new story
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("new") === "true") {
+      localStorage.removeItem(DRAFT_KEY);
+      return;
+    }
+
     try {
       const savedDraft = localStorage.getItem(DRAFT_KEY);
       if (savedDraft) {
