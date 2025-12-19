@@ -46,7 +46,9 @@ const Shelf = () => {
   };
 
   const handleCreateNew = () => {
-    navigate("/");
+    // Clear any existing draft before starting fresh
+    localStorage.removeItem("story-draft");
+    navigate("/?new=true");
   };
 
   const handleOpenStory = (id: string) => {
