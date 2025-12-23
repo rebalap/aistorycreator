@@ -6,6 +6,35 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper function to convert image URLs to base64 data URLs
+async function toBase64DataUrl(imageInput: string): Promise<string> {
+  // Already a data URL, return as-is
+  if (imageInput.startsWith('data:')) {
+    return imageInput;
+  }
+  
+  try {
+    console.log("Converting image URL to base64:", imageInput.substring(0, 50) + "...");
+    const response = await fetch(imageInput);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    const base64 = btoa(binary);
+    const contentType = response.headers.get('content-type') || 'image/png';
+    console.log("Successfully converted image to base64, content-type:", contentType);
+    return `data:${contentType};base64,${base64}`;
+  } catch (error) {
+    console.error("Error converting image to base64:", error);
+    throw error;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -58,6 +87,9 @@ serve(async (req) => {
 
     console.log("Editing cover with prompt:", editPrompt);
 
+    // Convert images to base64
+    const currentImageBase64 = await toBase64DataUrl(currentImage);
+
     let prompt = `Edit this children's book COVER illustration based on the following instruction:
 
 EDIT INSTRUCTION: ${editPrompt}
@@ -79,12 +111,13 @@ Apply the edit while maintaining cover quality. The image must be TEXT-FREE.`;
 
     const messageContent: any[] = [
       { type: "text", text: prompt },
-      { type: "image_url", image_url: { url: currentImage } },
+      { type: "image_url", image_url: { url: currentImageBase64 } },
     ];
 
     // Add character image for reference if provided
     if (characterImage) {
-      messageContent.push({ type: "image_url", image_url: { url: characterImage } });
+      const characterImageBase64 = await toBase64DataUrl(characterImage);
+      messageContent.push({ type: "image_url", image_url: { url: characterImageBase64 } });
     }
 
     console.log("Calling AI gateway for cover edit...");

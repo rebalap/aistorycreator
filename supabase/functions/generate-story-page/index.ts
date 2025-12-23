@@ -6,6 +6,35 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper function to convert image URLs to base64 data URLs
+async function toBase64DataUrl(imageInput: string): Promise<string> {
+  // Already a data URL, return as-is
+  if (imageInput.startsWith('data:')) {
+    return imageInput;
+  }
+  
+  try {
+    console.log("Converting image URL to base64:", imageInput.substring(0, 50) + "...");
+    const response = await fetch(imageInput);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image: ${response.status}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    const base64 = btoa(binary);
+    const contentType = response.headers.get('content-type') || 'image/png';
+    console.log("Successfully converted image to base64, content-type:", contentType);
+    return `data:${contentType};base64,${base64}`;
+  } catch (error) {
+    console.error("Error converting image to base64:", error);
+    throw error;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -47,6 +76,9 @@ serve(async (req) => {
     }
 
     console.log(`Generating story page ${pageNumber || 1} with text:`, storyText.substring(0, 100) + "...");
+
+    // Convert character image to base64
+    const characterImageBase64 = await toBase64DataUrl(characterImage);
 
     // Build the prompt for image generation with character consistency
     let prompt = `Create a children's book illustration in an 8:9 portrait aspect ratio (width:height = 8:9, approximately 960x1080 pixels).
@@ -94,34 +126,37 @@ ADDITIONAL REQUIREMENTS:
       {
         type: "image_url",
         image_url: {
-          url: characterImage,
+          url: characterImageBase64,
         },
       },
     ];
 
     // Add previous page images for character consistency (most recent first)
     if (previousImages && previousImages.length > 0) {
-      console.log(`Including ${previousImages.length} previous images for character consistency`);
-      previousImages.forEach((prevImage: string, index: number) => {
+      console.log(`Converting ${previousImages.length} previous images to base64 for character consistency`);
+      for (const prevImage of previousImages) {
+        const prevImageBase64 = await toBase64DataUrl(prevImage);
         messageContent.push({
           type: "image_url",
           image_url: {
-            url: prevImage,
+            url: prevImageBase64,
           },
         });
-      });
+      }
     }
 
     // Add background images if provided
     if (backgroundImages && backgroundImages.length > 0) {
-      backgroundImages.forEach((bgImage: string) => {
+      console.log(`Converting ${backgroundImages.length} background images to base64`);
+      for (const bgImage of backgroundImages) {
+        const bgImageBase64 = await toBase64DataUrl(bgImage);
         messageContent.push({
           type: "image_url",
           image_url: {
-            url: bgImage,
+            url: bgImageBase64,
           },
         });
-      });
+      }
     }
 
     console.log("Calling Lovable AI for image generation...");
