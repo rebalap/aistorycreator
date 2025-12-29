@@ -154,7 +154,10 @@ This is a COVER image background - make it visually stunning but completely TEXT
       }
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: "Usage limit reached. Please add credits to continue." }),
+          JSON.stringify({ 
+            error: "You've run out of AI credits! Add more credits to your Lovable workspace to continue creating beautiful stories.",
+            code: "CREDITS_EXHAUSTED"
+          }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

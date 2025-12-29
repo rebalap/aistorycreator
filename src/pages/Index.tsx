@@ -5,6 +5,8 @@ import { StoryPagePreview } from "@/components/StoryPagePreview";
 import { PageThumbnails, StoryPage } from "@/components/PageThumbnails";
 import { SaveStoryDialog } from "@/components/SaveStoryDialog";
 import { CoverPagePreview, TitlePosition, TitleFontStyle, TitleFontSize } from "@/components/CoverPagePreview";
+import { UsageStats } from "@/components/UsageStats";
+import { showCreditsExhaustedToast, isCreditsExhaustedError } from "@/components/CreditsExhaustedToast";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useStories } from "@/hooks/useStories";
 import { useAutosave, StoryDraft } from "@/hooks/useAutosave";
+import { useUsageStats } from "@/hooks/useUsageStats";
 
 const createEmptyPage = (pageNumber: number): StoryPage => ({
   id: crypto.randomUUID(),
@@ -31,6 +34,7 @@ const Index = () => {
   
   const { user, signOut, loading: authLoading } = useAuth();
   const { createStory, updateStory, getStoryWithPages, saveStoryPages } = useStories();
+  const { totalGenerations, avgPerStory, isLoading: usageLoading, logGeneration } = useUsageStats();
 
   const [characterImages, setCharacterImages] = useState<string[]>([]);
   const [backgroundImages, setBackgroundImages] = useState<string[]>([]);
@@ -309,13 +313,18 @@ const Index = () => {
 
       if (data?.image) {
         updateCurrentPage({ image: data.image });
+        logGeneration("page", currentStoryId);
         toast.success(`Page ${currentPage.pageNumber} generated!`);
       } else {
         throw new Error("No image received from the server");
       }
     } catch (error: any) {
       console.error("Generation error:", error);
-      toast.error(error.message || "Failed to generate story page. Please try again.");
+      if (isCreditsExhaustedError(error)) {
+        showCreditsExhaustedToast();
+      } else {
+        toast.error(error.message || "Failed to generate story page. Please try again.");
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -367,13 +376,18 @@ const Index = () => {
 
       if (data?.image) {
         updateCurrentPage({ pendingImage: data.image });
+        logGeneration("edit_page", currentStoryId);
         toast.success("Edit complete! Compare and choose.");
       } else {
         throw new Error("No edited image received");
       }
     } catch (error: any) {
       console.error("Edit error:", error);
-      toast.error(error.message || "Failed to edit image. Please try again.");
+      if (isCreditsExhaustedError(error)) {
+        showCreditsExhaustedToast();
+      } else {
+        toast.error(error.message || "Failed to edit image. Please try again.");
+      }
     } finally {
       setIsEditingImage(false);
     }
@@ -423,13 +437,18 @@ const Index = () => {
 
       if (data?.image) {
         setCoverImage(data.image);
+        logGeneration("cover", currentStoryId);
         toast.success("Cover generated!");
       } else {
         throw new Error("No cover image received");
       }
     } catch (error: any) {
       console.error("Cover generation error:", error);
-      toast.error(error.message || "Failed to generate cover. Please try again.");
+      if (isCreditsExhaustedError(error)) {
+        showCreditsExhaustedToast();
+      } else {
+        toast.error(error.message || "Failed to generate cover. Please try again.");
+      }
     } finally {
       setIsGeneratingCover(false);
     }
@@ -456,13 +475,18 @@ const Index = () => {
 
       if (data?.image) {
         setPendingCoverImage(data.image);
+        logGeneration("edit_cover", currentStoryId);
         toast.success("Cover edit complete! Compare and choose.");
       } else {
         throw new Error("No edited cover received");
       }
     } catch (error: any) {
       console.error("Cover edit error:", error);
-      toast.error(error.message || "Failed to edit cover. Please try again.");
+      if (isCreditsExhaustedError(error)) {
+        showCreditsExhaustedToast();
+      } else {
+        toast.error(error.message || "Failed to edit cover. Please try again.");
+      }
     } finally {
       setIsEditingCover(false);
     }
@@ -831,7 +855,7 @@ const Index = () => {
                 className="text-lg font-bold border-none bg-transparent p-0 h-auto focus-visible:ring-0"
                 placeholder="Story Title"
               />
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <p className="text-xs text-muted-foreground">AI-powered multi-page stories</p>
                 <span className="text-xs text-muted-foreground">•</span>
                 <span className="text-xs flex items-center gap-1">
@@ -860,6 +884,16 @@ const Index = () => {
                     </>
                   )}
                 </span>
+                {totalGenerations > 0 && (
+                  <>
+                    <span className="text-xs text-muted-foreground">•</span>
+                    <UsageStats 
+                      totalGenerations={totalGenerations} 
+                      avgPerStory={avgPerStory} 
+                      isLoading={usageLoading} 
+                    />
+                  </>
+                )}
               </div>
             </div>
           </div>
