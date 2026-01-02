@@ -59,6 +59,7 @@ export const useAutosave = ({
 }: UseAutosaveProps) => {
   const { updateStory, saveStoryPages } = useStories();
   const [status, setStatus] = useState<AutosaveStatus>("idle");
+  const [draftRestored, setDraftRestored] = useState(false);
   
   const localSaveTimeout = useRef<NodeJS.Timeout | null>(null);
   const dbSaveInterval = useRef<NodeJS.Timeout | null>(null);
@@ -177,9 +178,9 @@ export const useAutosave = ({
     if (isInitialized.current) return;
     isInitialized.current = true;
 
-    // Don't restore draft if starting a new story
+    // Don't restore draft if starting a new story or loading from URL
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get("new") === "true") {
+    if (urlParams.get("new") === "true" || urlParams.get("story")) {
       localStorage.removeItem(DRAFT_KEY);
       return;
     }
@@ -193,15 +194,21 @@ export const useAutosave = ({
                          draft.coverImage;
         
         if (hasContent) {
-          onRestoreDraft(draft);
-          lastSavedRef.current = getDraftHash();
-          toast.success("Draft restored", {
-            description: `Your previous work on "${draft.storyTitle || 'Untitled Story'}" has been restored.`,
+          setDraftRestored(true);
+          // Use requestAnimationFrame to batch state updates
+          requestAnimationFrame(() => {
+            onRestoreDraft(draft);
+            lastSavedRef.current = getDraftHash();
+            toast.success("Draft restored", {
+              description: `Your previous work on "${draft.storyTitle || 'Untitled Story'}" has been restored.`,
+            });
           });
         }
       }
     } catch (error) {
       console.error("Failed to restore draft:", error);
+      // Clear corrupted draft
+      localStorage.removeItem(DRAFT_KEY);
     }
   }, [onRestoreDraft, getDraftHash]);
 
@@ -273,5 +280,6 @@ export const useAutosave = ({
     status,
     clearDraft,
     saveToLocal,
+    draftRestored,
   };
 };
