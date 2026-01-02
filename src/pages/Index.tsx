@@ -83,6 +83,7 @@ const Index = () => {
   const {
     status: autosaveStatus,
     clearDraft,
+    draftRestored,
   } = useAutosave({
     storyTitle,
     characterImages,
@@ -108,12 +109,12 @@ const Index = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Load story from URL param
+  // Load story from URL param (skip if draft was already restored)
   useEffect(() => {
-    if (storyId && user) {
+    if (storyId && user && !draftRestored) {
       loadStory(storyId);
     }
-  }, [storyId, user]);
+  }, [storyId, user, draftRestored]);
 
   const loadStory = async (id: string) => {
     setIsLoadingStory(true);
