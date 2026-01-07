@@ -57,17 +57,26 @@ const Auth = () => {
     if (!validateInputs(false)) return;
 
     setIsLoading(true);
+    
+    // Safety timeout to reset loading state
+    const safetyTimeout = setTimeout(() => {
+      setIsLoading(false);
+      toast.error("Connection timed out. Please check your internet and try again.");
+    }, 20000);
+
     const { error } = await signIn(email, password);
+    clearTimeout(safetyTimeout);
     setIsLoading(false);
 
     if (error) {
-      if (error.message.includes("Invalid login credentials")) {
+      if (error.message.includes("timed out")) {
+        toast.error("Connection timed out. Please try again.");
+      } else if (error.message.includes("Invalid login credentials")) {
         toast.error("Invalid email or password");
       } else {
         toast.error(error.message);
       }
     } else {
-      // Store remember me preference
       localStorage.setItem("rememberMe", rememberMe ? "true" : "false");
       toast.success("Welcome back!");
       navigate("/");
@@ -79,11 +88,21 @@ const Auth = () => {
     if (!validateInputs(true)) return;
 
     setIsLoading(true);
+    
+    // Safety timeout to reset loading state
+    const safetyTimeout = setTimeout(() => {
+      setIsLoading(false);
+      toast.error("Connection timed out. Please check your internet and try again.");
+    }, 20000);
+
     const { error } = await signUp(email, password);
+    clearTimeout(safetyTimeout);
     setIsLoading(false);
 
     if (error) {
-      if (error.message.includes("already registered")) {
+      if (error.message.includes("timed out")) {
+        toast.error("Connection timed out. Please try again.");
+      } else if (error.message.includes("already registered")) {
         toast.error("This email is already registered. Try signing in instead.");
       } else {
         toast.error(error.message);
