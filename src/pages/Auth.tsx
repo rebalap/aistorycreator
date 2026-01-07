@@ -69,8 +69,8 @@ const Auth = () => {
     setIsLoading(false);
 
     if (error) {
-      if (error.message.includes("timed out")) {
-        toast.error("Connection timed out. Please try again.");
+      if (error.message.includes("timed out") || error.message.includes("Unable to connect")) {
+        toast.error("Connection failed. Please check your internet and try again.");
       } else if (error.message.includes("Invalid login credentials")) {
         toast.error("Invalid email or password");
       } else {
@@ -100,8 +100,8 @@ const Auth = () => {
     setIsLoading(false);
 
     if (error) {
-      if (error.message.includes("timed out")) {
-        toast.error("Connection timed out. Please try again.");
+      if (error.message.includes("timed out") || error.message.includes("Unable to connect")) {
+        toast.error("Connection failed. Please check your internet and try again.");
       } else if (error.message.includes("already registered")) {
         toast.error("This email is already registered. Try signing in instead.");
       } else {

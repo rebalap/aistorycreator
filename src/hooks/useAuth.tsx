@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = async (email: string, password: string) => {
     const redirectUrl = `${window.location.origin}/`;
     try {
-      const { error } = await withTimeout(
+      const result = await withTimeout(
         supabase.auth.signUp({
           email,
           password,
@@ -72,23 +72,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }),
         15000
       );
-      return { error };
-    } catch (e) {
+      return { error: result.error };
+    } catch (e: any) {
+      // Handle network errors like "Failed to fetch"
+      if (e?.message?.includes("Failed to fetch") || e?.message?.includes("fetch")) {
+        return { error: new Error("Unable to connect. Please check your internet connection.") };
+      }
       return { error: e as Error };
     }
   };
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await withTimeout(
+      const result = await withTimeout(
         supabase.auth.signInWithPassword({
           email,
           password,
         }),
         15000
       );
-      return { error };
-    } catch (e) {
+      return { error: result.error };
+    } catch (e: any) {
+      // Handle network errors like "Failed to fetch"
+      if (e?.message?.includes("Failed to fetch") || e?.message?.includes("fetch")) {
+        return { error: new Error("Unable to connect. Please check your internet connection.") };
+      }
       return { error: e as Error };
     }
   };
