@@ -27,29 +27,45 @@ export const useStories = () => {
   const { user } = useAuth();
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchStories = async () => {
+  const fetchStories = async (attempt = 0): Promise<void> => {
     if (!user) {
       setStories([]);
       setLoading(false);
+      setError(null);
       return;
     }
 
     try {
-      const { data, error } = await supabase
+      setError(null);
+      const { data, error: fetchError } = await supabase
         .from("stories")
         .select("*")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
 
-      if (error) throw error;
+      if (fetchError) {
+        // Retry on transient errors (503, connection issues)
+        if (attempt < 3 && (fetchError.code === "PGRST002" || fetchError.message?.includes("503"))) {
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+          return fetchStories(attempt + 1);
+        }
+        throw fetchError;
+      }
       setStories(data || []);
-    } catch (error: any) {
-      console.error("Error fetching stories:", error);
-      toast.error("Failed to load stories");
+    } catch (err: any) {
+      console.error("Error fetching stories:", err);
+      setError("Unable to load stories. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const retryFetch = () => {
+    setLoading(true);
+    setError(null);
+    fetchStories();
   };
 
   useEffect(() => {
@@ -201,7 +217,9 @@ export const useStories = () => {
   return {
     stories,
     loading,
+    error,
     fetchStories,
+    retryFetch,
     createStory,
     updateStory,
     deleteStory,
