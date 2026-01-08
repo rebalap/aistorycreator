@@ -5,14 +5,14 @@ import { useStories, Story, StoryPage } from "@/hooks/useStories";
 import { StoryCard } from "@/components/StoryCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Plus, Search, LogOut, Loader2, BookOpen } from "lucide-react";
+import { Sparkles, Plus, Search, LogOut, Loader2, BookOpen, RefreshCw, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const Shelf = () => {
   const navigate = useNavigate();
   const { user, signOut, loading: authLoading } = useAuth();
-  const { stories, loading: storiesLoading, deleteStory, getStoryWithPages } = useStories();
+  const { stories, loading: storiesLoading, error: storiesError, deleteStory, getStoryWithPages, retryFetch } = useStories();
   const [searchQuery, setSearchQuery] = useState("");
   const [pageCounts, setPageCounts] = useState<Record<string, number>>({});
 
@@ -155,6 +155,20 @@ const Shelf = () => {
         {storiesLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : storiesError ? (
+          <div className="text-center py-16 space-y-4">
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
+              <WifiOff className="w-8 h-8 text-destructive" />
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-foreground">Connection Error</h3>
+              <p className="text-muted-foreground mt-1">{storiesError}</p>
+            </div>
+            <Button onClick={retryFetch} variant="outline">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Try Again
+            </Button>
           </div>
         ) : filteredStories.length === 0 ? (
           <div className="text-center py-16 space-y-4">
