@@ -96,8 +96,15 @@ serve(async (req) => {
       translatedTexts = JSON.parse(cleaned);
       if (!Array.isArray(translatedTexts)) throw new Error("Not an array");
     } catch {
-      console.error("Failed to parse batch response:", rawContent);
-      throw new Error("Translation response was not valid JSON array");
+      // Fallback: parse numbered list format like "1. text\n2. text"
+      const lines = rawContent.split("\n").filter((l: string) => l.trim());
+      const parsed = lines.map((l: string) => l.replace(/^\d+\.\s*/, "").trim()).filter(Boolean);
+      if (parsed.length === texts.length) {
+        translatedTexts = parsed;
+      } else {
+        console.error("Failed to parse batch response:", rawContent);
+        throw new Error("Translation response was not valid JSON array");
+      }
     }
 
     return new Response(
