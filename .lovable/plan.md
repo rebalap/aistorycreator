@@ -1,57 +1,74 @@
 
 
-## Implementation: Arabic Language Toggle
+## Plan: Auto-translate all content when language toggle changes
 
-The approved plan has not been implemented yet — no code changes or database migrations were executed. Here's what needs to be done:
+### Problem
+Currently, switching the language toggle only changes the text direction and font. It does not translate the story title or page texts. The user expects toggling to Arabic to automatically translate everything.
 
-### Step 1: Database Migration
-Add a `language` column to the `stories` table:
-```sql
-ALTER TABLE public.stories ADD COLUMN language text NOT NULL DEFAULT 'en';
+### Approach
+Modify the `onLanguageChange` handler in `Index.tsx` to:
+
+1. When the language toggle changes (e.g. EN → AR or AR → EN), collect the story title and all page texts
+2. Call the existing `translate-story-text` edge function for each piece of text (batch into a single call by sending all texts together)
+3. Update the story title, cover title, and all page texts with the translated results
+4. Show a loading indicator during translation
+
+### Changes
+
+**1. Update `translate-story-text` edge function** (`supabase/functions/translate-story-text/index.ts`)
+- Accept an array of texts instead of a single text: `{ texts: string[], targetLanguage }`
+- Return `{ translatedTexts: string[] }`
+- Translate all texts in a single AI call for efficiency (send them numbered so the model returns them in order)
+
+**2. Update `Index.tsx`**
+- Replace `onLanguageChange={setLanguage}` with a new `handleLanguageChange` function
+- This function will:
+  - Show a loading toast/state
+  - Collect: story title + all page texts that are non-empty
+  - Call the updated edge function with all texts and the target language
+  - Apply translated results: update `storyTitle`, `coverTitle`, and each page's `text`
+  - Set the new language state
+  - Handle errors gracefully (revert language if translation fails)
+- Add a translating overlay/spinner so the user knows translation is in progress
+- The existing single-text "Translate" button next to the textarea can remain as-is (for translating individual pages), or be updated to use the same batch endpoint
+
+### Technical Details
+
+**Edge function prompt update:**
+```
+Translate the following numbered children's story texts to [Arabic/English].
+Keep them simple, age-appropriate, and preserve the storytelling tone.
+Return ONLY a JSON array of translated strings in the same order.
+
+1. [title]
+2. [page 1 text]
+3. [page 2 text]
+...
 ```
 
-### Step 2: Add Arabic Font (`index.html`)
-Add Google Fonts link for "Noto Naskh Arabic" for canvas rendering support.
+**`handleLanguageChange` pseudocode:**
+```typescript
+const handleLanguageChange = async (newLang: 'en' | 'ar') => {
+  if (newLang === language) return;
+  
+  const textsToTranslate = [storyTitle, ...pages.map(p => p.text)].filter(Boolean);
+  if (textsToTranslate.length === 0) { setLanguage(newLang); return; }
+  
+  setIsTranslating(true);
+  const { data, error } = await supabase.functions.invoke('translate-story-text', {
+    body: { texts: textsToTranslate, targetLanguage: newLang }
+  });
+  
+  // Apply: first result = title, rest = page texts
+  setStoryTitle(translatedTexts[0]);
+  setCoverTitle(translatedTexts[0]);
+  // Update each page text...
+  setLanguage(newLang);
+  setIsTranslating(false);
+};
+```
 
-### Step 3: Update `MetadataBar.tsx`
-- Add `language` and `onLanguageChange` props
-- Add a third column with an EN/AR toggle group using Radix ToggleGroup
-- Change grid from `md:grid-cols-2` to `md:grid-cols-3`
-
-### Step 4: Create Translation Edge Function
-New file: `supabase/functions/translate-story-text/index.ts`
-- POST endpoint accepting `{ text, targetLanguage }`
-- Uses `google/gemini-2.5-flash-lite` for translation
-- Returns `{ translatedText }`
-
-### Step 5: Update `Index.tsx`
-- Add `language` state (`'en' | 'ar'`, default `'en'`)
-- Pass `language` / `onLanguageChange` to MetadataBar
-- Add "Translate" button next to textarea
-- When Arabic: set `dir="rtl"` on Textarea, change placeholder to Arabic
-- Update `renderPageToBlob` for RTL canvas rendering
-- Persist language in save/load flow
-- Load language from story data in `loadStory`
-
-### Step 6: Update `StoryPagePreview.tsx`
-- Add `language` prop
-- When Arabic: text container gets `dir="rtl"`, Arabic font, right alignment
-- Editing textarea also gets RTL direction
-
-### Step 7: Update `useAutosave.tsx`
-- Add `language` to `StoryDraft` interface and all related functions
-
-### Step 8: Update `useStories.tsx`
-- Add `language` to `Story` interface
-- Update `createStory` to accept and pass `language`
-
-### Files to Create/Modify
-1. **Database migration** — Add `language` column
-2. **`supabase/functions/translate-story-text/index.ts`** — New edge function
-3. **`index.html`** — Add Noto Naskh Arabic font
-4. **`src/components/MetadataBar.tsx`** — Language toggle UI
-5. **`src/pages/Index.tsx`** — Language state, RTL support, translate button, canvas RTL
-6. **`src/components/StoryPagePreview.tsx`** — RTL preview
-7. **`src/hooks/useAutosave.tsx`** — Language in drafts
-8. **`src/hooks/useStories.tsx`** — Language in CRUD
+### Files to modify
+1. **`supabase/functions/translate-story-text/index.ts`** — Support batch translation (array of texts)
+2. **`src/pages/Index.tsx`** — New `handleLanguageChange` that translates all content on toggle
 
