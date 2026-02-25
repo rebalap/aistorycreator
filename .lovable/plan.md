@@ -1,83 +1,72 @@
 
 
-## Plan: Two Shelves with Community Story Editing
+## Plan: Arabic Language Toggle in MetadataBar
 
 ### Overview
 
-Add a tabbed interface on the Shelf page: "My Stories" (current behavior) and "Community" (all stories from all users). Users can open and edit any community story.
+Add a language toggle (English/Arabic) to the MetadataBar component, alongside the character and background image uploaders. When Arabic is selected, the story text input switches to RTL with an Arabic font, the preview renders RTL, and downloaded images render Arabic text right-to-left. A "Translate" button will use AI to translate existing text between languages.
 
-### 1. Database Changes — RLS Policy Updates
+### 1. Database Change
 
-**Table: `stories`**
-
-Current policies only allow users to access their own stories. We need to add:
-- A new SELECT policy allowing all authenticated users to read all stories
-- A new UPDATE policy allowing all authenticated users to update any story
-
-We will replace the existing restrictive SELECT/UPDATE policies:
+Add a `language` column to the `stories` table:
 
 ```sql
--- Allow all authenticated users to view all stories
-DROP POLICY "Users can view own stories" ON public.stories;
-CREATE POLICY "Authenticated users can view all stories"
-  ON public.stories FOR SELECT TO authenticated
-  USING (true);
-
--- Allow all authenticated users to update any story
-DROP POLICY "Users can update own stories" ON public.stories;
-CREATE POLICY "Authenticated users can update all stories"
-  ON public.stories FOR UPDATE TO authenticated
-  USING (true);
+ALTER TABLE public.stories ADD COLUMN language text NOT NULL DEFAULT 'en';
 ```
 
-Keep INSERT (own only) and DELETE (own only) as-is — users should only create and delete their own stories.
+### 2. MetadataBar Update (`src/components/MetadataBar.tsx`)
 
-**Table: `story_pages`**
+- Accept new props: `language: 'en' | 'ar'` and `onLanguageChange: (lang) => void`
+- Add a third column to the grid (change to `md:grid-cols-3`) with a language toggle
+- Use two toggle buttons: "English" / "عربي" styled as a toggle group
+- Show current language selection clearly
 
-Same pattern — open SELECT and UPDATE to all authenticated users:
+### 3. Translation Edge Function (`supabase/functions/translate-story-text/index.ts`)
 
-```sql
-DROP POLICY "Users can view own story pages" ON public.story_pages;
-CREATE POLICY "Authenticated users can view all story pages"
-  ON public.story_pages FOR SELECT TO authenticated
-  USING (true);
+- Accepts `{ text, targetLanguage }` via POST
+- Uses Lovable AI (`google/gemini-2.5-flash-lite`) with prompt: "Translate the following children's story text to [Arabic/English]. Keep it simple, age-appropriate, and preserve the storytelling tone."
+- Returns `{ translatedText }`
+- Handles 429/402 rate limit errors
 
-DROP POLICY "Users can update own story pages" ON public.story_pages;
-CREATE POLICY "Authenticated users can update all story pages"
-  ON public.story_pages FOR UPDATE TO authenticated
-  USING (true);
+### 4. Index.tsx Changes
 
--- Also need INSERT for saving pages on others' stories
-DROP POLICY "Users can create own story pages" ON public.story_pages;
-CREATE POLICY "Authenticated users can create all story pages"
-  ON public.story_pages FOR INSERT TO authenticated
-  WITH CHECK (true);
+- Add `language` state (`'en' | 'ar'`, default `'en'`)
+- Pass `language` and `onLanguageChange` to MetadataBar
+- Add a "Translate" button next to the story text textarea that calls the edge function and replaces the text
+- When `language === 'ar'`: set `dir="rtl"` on the Textarea, use Arabic font class, change placeholder to Arabic
+- Pass `language` to `StoryPagePreview`
+- Update `renderPageToBlob`: when Arabic, use `ctx.direction = "rtl"`, `ctx.textAlign = "right"`, Arabic-safe font (Tahoma), and adjust text X position to right side
+- Persist `language` in save/load story flow (via the new DB column)
+- Load language from story data in `loadStory`
+- Include language in `handleSaveStory` → `updateStory` / `createStory`
 
--- Keep DELETE open too since saveStoryPages deletes then re-inserts
-DROP POLICY "Users can delete own story pages" ON public.story_pages;
-CREATE POLICY "Authenticated users can delete all story pages"
-  ON public.story_pages FOR DELETE TO authenticated
-  USING (true);
-```
+### 5. StoryPagePreview Changes (`src/components/StoryPagePreview.tsx`)
 
-### 2. Hook Changes — `useStories.tsx`
+- Accept `language` prop
+- When `language === 'ar'`: text container gets `dir="rtl"`, font changes to `"Tahoma", "Arabic Typesetting", sans-serif`, text alignment right
+- Editing textarea also gets RTL direction
 
-Add a `fetchAllStories` function that queries all stories without the `user_id` filter. Add state for `communityStories` and expose it. Return both `stories` (user's own) and `communityStories` (all others).
+### 6. Autosave Integration (`src/hooks/useAutosave.tsx`)
 
-### 3. UI Changes — `Shelf.tsx`
+- Add `language` to `StoryDraft` interface
+- Include in `getCurrentDraft`, `getDraftHash`, and `handleRestoreDraft`
 
-- Add tabs using Radix Tabs component: "My Stories" and "Community"
-- "My Stories" tab shows current behavior (user's own stories, with delete option)
-- "Community" tab shows all other users' stories (no delete option, only open/download)
-- Search filters within the active tab
+### 7. Font Addition (`index.html`)
 
-### 4. StoryCard Adjustments
+- Add Google Fonts link for "Noto Naskh Arabic" for consistent Arabic rendering in canvas downloads
 
-- Add an optional `hideDelete` prop to `StoryCard` to hide the delete option for community stories (since users can only delete their own)
+### 8. useStories Hook
 
-### Files to Modify
-1. **Database migration** — Update RLS policies on `stories` and `story_pages`
-2. **`src/hooks/useStories.tsx`** — Add `fetchAllStories`, `communityStories` state
-3. **`src/pages/Shelf.tsx`** — Add tabs for My Stories / Community
-4. **`src/components/StoryCard.tsx`** — Add `hideDelete` prop
+- Update `createStory` and `updateStory` to handle the `language` field
+
+### Files to Create/Modify
+
+1. **Database migration** — Add `language` column
+2. **`supabase/functions/translate-story-text/index.ts`** — New translation edge function
+3. **`src/components/MetadataBar.tsx`** — Add language toggle UI
+4. **`src/pages/Index.tsx`** — Language state, RTL textarea, translate button, RTL canvas rendering, persist language
+5. **`src/components/StoryPagePreview.tsx`** — RTL preview support
+6. **`src/hooks/useAutosave.tsx`** — Add language to draft
+7. **`index.html`** — Add Noto Naskh Arabic font
+8. **`src/hooks/useStories.tsx`** — Handle language field in CRUD
 
