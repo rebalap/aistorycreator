@@ -11,6 +11,7 @@ interface StoryPagePreviewProps {
   text: string;
   isLoading?: boolean;
   isEditingImage?: boolean;
+  language?: "en" | "ar";
   className?: string;
   onEditImage?: (prompt: string) => void;
   onAcceptImage?: () => void;
@@ -24,6 +25,7 @@ export function StoryPagePreview({
   text,
   isLoading = false,
   isEditingImage = false,
+  language = "en",
   className,
   onEditImage,
   onAcceptImage,
@@ -226,14 +228,15 @@ export function StoryPagePreview({
             </div>
 
             {/* Right side - Text (50%) */}
-            <div className="flex-1 h-full flex items-center justify-center p-4 md:p-6 lg:p-8 relative group">
+            <div className="flex-1 h-full flex items-center justify-center p-4 md:p-6 lg:p-8 relative group" dir={language === 'ar' ? 'rtl' : 'ltr'}>
               {isEditingText ? (
                 <div className="w-full h-full flex flex-col gap-2 p-2">
                   <Textarea
                     value={editedText}
                     onChange={(e) => setEditedText(e.target.value)}
                     className="flex-1 font-bold text-base resize-none"
-                    style={{ fontFamily: "'Comic Sans MS', 'Comic Sans', cursive" }}
+                    dir={language === 'ar' ? 'rtl' : 'ltr'}
+                    style={{ fontFamily: language === 'ar' ? "'Noto Naskh Arabic', 'Tahoma', sans-serif" : "'Comic Sans MS', 'Comic Sans', cursive" }}
                     autoFocus
                   />
                   <div className="flex gap-2 justify-end">
@@ -250,8 +253,8 @@ export function StoryPagePreview({
               ) : (
                 <>
                   <p 
-                    className="text-sm md:text-lg lg:text-xl font-bold text-foreground leading-relaxed text-center"
-                    style={{ fontFamily: "'Comic Sans MS', 'Comic Sans', cursive" }}
+                    className={cn("text-sm md:text-lg lg:text-xl font-bold text-foreground leading-relaxed", language === 'ar' ? 'text-right' : 'text-center')}
+                    style={{ fontFamily: language === 'ar' ? "'Noto Naskh Arabic', 'Tahoma', sans-serif" : "'Comic Sans MS', 'Comic Sans', cursive" }}
                   >
                     {text || "Your story text will appear here..."}
                   </p>

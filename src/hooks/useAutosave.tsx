@@ -16,6 +16,7 @@ export interface StoryDraft {
   titleFontStyle: TitleFontStyle;
   titleColor: string;
   titleFontSize: TitleFontSize;
+  language?: 'en' | 'ar';
   lastSaved: number;
   currentStoryId: string | null;
 }
@@ -35,6 +36,7 @@ interface UseAutosaveProps {
   titleFontStyle: TitleFontStyle;
   titleColor: string;
   titleFontSize: TitleFontSize;
+  language: 'en' | 'ar';
   currentStoryId: string | null;
   user: any;
   onRestoreDraft: (draft: StoryDraft) => void;
@@ -53,6 +55,7 @@ export const useAutosave = ({
   titleFontStyle,
   titleColor,
   titleFontSize,
+  language,
   currentStoryId,
   user,
   onRestoreDraft,
@@ -77,9 +80,10 @@ export const useAutosave = ({
     titleFontStyle,
     titleColor,
     titleFontSize,
+    language,
     lastSaved: Date.now(),
     currentStoryId,
-  }), [storyTitle, characterImages, backgroundImages, pages, coverImage, coverTitle, titlePosition, titleFontStyle, titleColor, titleFontSize, currentStoryId]);
+  }), [storyTitle, characterImages, backgroundImages, pages, coverImage, coverTitle, titlePosition, titleFontStyle, titleColor, titleFontSize, language, currentStoryId]);
 
   const getDraftHash = useCallback(() => {
     return JSON.stringify({
@@ -93,8 +97,9 @@ export const useAutosave = ({
       titleFontStyle,
       titleColor,
       titleFontSize,
+      language,
     });
-  }, [storyTitle, characterImages, backgroundImages, pages, coverImage, coverTitle, titlePosition, titleFontStyle, titleColor, titleFontSize]);
+  }, [storyTitle, characterImages, backgroundImages, pages, coverImage, coverTitle, titlePosition, titleFontStyle, titleColor, titleFontSize, language]);
 
   // Save to localStorage
   const saveToLocal = useCallback(() => {

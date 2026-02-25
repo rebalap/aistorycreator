@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.edit-cover-image]
 verify_jwt = false
+
+[functions.translate-story-text]
+verify_jwt = false

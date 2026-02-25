@@ -17,6 +17,7 @@ export interface Story {
   title: string;
   cover_image_url: string | null;
   character_image_url: string | null;
+  language?: string;
   background_image_urls: string[] | null;
   created_at: string;
   updated_at: string;
@@ -130,7 +131,7 @@ export const useStories = () => {
     };
   }, [user]);
 
-  const createStory = async (title: string, characterImageUrl?: string, backgroundImageUrls?: string[]) => {
+  const createStory = async (title: string, characterImageUrl?: string, backgroundImageUrls?: string[], storyLanguage?: string) => {
     if (!user) return null;
 
     try {
@@ -141,7 +142,8 @@ export const useStories = () => {
           title,
           character_image_url: characterImageUrl || null,
           background_image_urls: backgroundImageUrls || null,
-        })
+          language: storyLanguage || 'en',
+        } as any)
         .select()
         .single();
 
@@ -160,7 +162,7 @@ export const useStories = () => {
     try {
       const { data, error } = await supabase
         .from("stories")
-        .update(updates)
+        .update(updates as any)
         .eq("id", storyId)
         .select()
         .single();

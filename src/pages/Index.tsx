@@ -11,7 +11,8 @@ import { showCreditsExhaustedToast, isCreditsExhaustedError } from "@/components
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Download, RefreshCw, Trash2, Save, BookOpen, LogIn, LogOut, Loader2, Cloud, CloudOff } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Sparkles, Download, RefreshCw, Trash2, Save, BookOpen, LogIn, LogOut, Loader2, Cloud, CloudOff, Languages } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -59,7 +60,9 @@ const Index = () => {
   const [titlePosition, setTitlePosition] = useState<TitlePosition>('center');
   const [titleFontStyle, setTitleFontStyle] = useState<TitleFontStyle>('classic');
   const [titleColor, setTitleColor] = useState<string>('#FFFFFF');
-  const [titleFontSize, setTitleFontSize] = useState<TitleFontSize>('medium');
+   const [titleFontSize, setTitleFontSize] = useState<TitleFontSize>('medium');
+  const [language, setLanguage] = useState<'en' | 'ar'>('en');
+  const [isTranslating, setIsTranslating] = useState(false);
 
   // Restore draft callback
   const handleRestoreDraft = useCallback((draft: StoryDraft) => {
@@ -73,6 +76,7 @@ const Index = () => {
     setTitleFontStyle(draft.titleFontStyle);
     setTitleColor(draft.titleColor);
     setTitleFontSize(draft.titleFontSize);
+    if (draft.language) setLanguage(draft.language);
     if (draft.currentStoryId) {
       setCurrentStoryId(draft.currentStoryId);
     }
@@ -95,6 +99,7 @@ const Index = () => {
     titleFontStyle,
     titleColor,
     titleFontSize,
+    language,
     currentStoryId,
     user,
     onRestoreDraft: handleRestoreDraft,
@@ -128,6 +133,7 @@ const Index = () => {
       setBackgroundImages(story.background_image_urls || []);
       setCoverImage(story.cover_image_url || null);
       setCoverTitle(story.title);
+      setLanguage((story as any).language === 'ar' ? 'ar' : 'en');
       
       if (loadedPages.length > 0) {
         setPages(loadedPages.map(p => ({
@@ -222,13 +228,14 @@ const Index = () => {
           cover_image_url: coverImageUrl,
           character_image_url: characterImageUrl,
           background_image_urls: backgroundImages,
+          language,
         });
         await saveStoryPages(currentStoryId, pageDataForSave);
         setStoryTitle(title);
         toast.success("Story saved!");
       } else {
         // Create new story
-        const newStory = await createStory(title, characterImageUrl || undefined, backgroundImages.length > 0 ? backgroundImages : undefined);
+        const newStory = await createStory(title, characterImageUrl || undefined, backgroundImages.length > 0 ? backgroundImages : undefined, language);
         if (newStory) {
           await updateStory(newStory.id, { cover_image_url: coverImageUrl });
           await saveStoryPages(newStory.id, pageDataForSave);
@@ -509,7 +516,7 @@ const Index = () => {
   const renderPageToBlob = async (page: StoryPage): Promise<Blob | null> => {
     if (!page.image) return null;
 
-    const fontFamily = '"Comic Sans MS", "Comic Sans", cursive';
+    const fontFamily = language === 'ar' ? '"Noto Naskh Arabic", "Tahoma", sans-serif' : '"Comic Sans MS", "Comic Sans", cursive';
     const fontSize = 48;
 
     // Wait for all fonts to be ready first
@@ -574,6 +581,7 @@ const Index = () => {
 
         ctx.fillStyle = "#1a1a1a";
         ctx.font = `bold ${fontSize}px ${fontFamily}`;
+        ctx.direction = language === 'ar' ? 'rtl' : 'ltr';
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
 
@@ -821,6 +829,7 @@ const Index = () => {
     setCurrentPageIndex(0);
     setCurrentStoryId(null);
     setStoryTitle("Untitled Story");
+    setLanguage('en');
     setCoverTitle("Untitled Story");
     setCoverImage(null);
     setPendingCoverImage(null);
@@ -970,6 +979,8 @@ const Index = () => {
           onCharacterImagesChange={setCharacterImages}
           backgroundImages={backgroundImages}
           onBackgroundImagesChange={setBackgroundImages}
+          language={language}
+          onLanguageChange={setLanguage}
         />
 
         {/* Page Thumbnails - Full width horizontal */}
@@ -1058,12 +1069,61 @@ const Index = () => {
                     </Button>
                   )}
                 </div>
-                <Textarea
-                  value={currentPage.text}
-                  onChange={(e) => handleTextChange(e.target.value)}
-                  placeholder="Once upon a time, in a magical forest..."
-                  className="min-h-[140px] resize-none font-serif text-base"
-                />
+                <div className="relative">
+                  <Textarea
+                    value={currentPage.text}
+                    onChange={(e) => handleTextChange(e.target.value)}
+                    placeholder={language === 'ar' ? "في يوم من الأيام، في غابة سحرية..." : "Once upon a time, in a magical forest..."}
+                    className="min-h-[140px] resize-none text-base"
+                    dir={language === 'ar' ? 'rtl' : 'ltr'}
+                    style={{ fontFamily: language === 'ar' ? '"Noto Naskh Arabic", "Tahoma", sans-serif' : 'inherit' }}
+                  />
+                  {currentPage.text.trim() && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute bottom-2 right-2"
+                            disabled={isTranslating}
+                            onClick={async () => {
+                              setIsTranslating(true);
+                              try {
+                                const { data, error } = await supabase.functions.invoke('translate-story-text', {
+                                  body: { text: currentPage.text, targetLanguage: language === 'en' ? 'ar' : 'en' },
+                                });
+                                if (error) throw error;
+                                if (data?.translatedText) {
+                                  handleTextChange(data.translatedText);
+                                  setLanguage(language === 'en' ? 'ar' : 'en');
+                                  toast.success(`Translated to ${language === 'en' ? 'Arabic' : 'English'}`);
+                                }
+                              } catch (err: any) {
+                                console.error('Translation error:', err);
+                                toast.error(err.message || 'Translation failed');
+                              } finally {
+                                setIsTranslating(false);
+                              }
+                            }}
+                          >
+                            {isTranslating ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Languages className="w-4 h-4" />
+                            )}
+                            <span className="ml-1 text-xs">
+                              {language === 'en' ? 'To عربي' : 'To EN'}
+                            </span>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Translate text to {language === 'en' ? 'Arabic' : 'English'}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
                 <Button
                   onClick={handleGenerate}
                   disabled={
@@ -1141,6 +1201,7 @@ const Index = () => {
                   text={currentPage.text}
                   isLoading={isGenerating}
                   isEditingImage={isEditingImage}
+                  language={language}
                   onEditImage={currentPage.image && !currentPage.pendingImage ? handleEditImage : undefined}
                   onAcceptImage={handleAcceptImage}
                   onDiscardImage={handleDiscardImage}
