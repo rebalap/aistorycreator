@@ -1,0 +1,1 @@
+ALTER TABLE public.stories ADD COLUMN language text NOT NULL DEFAULT 'en';
