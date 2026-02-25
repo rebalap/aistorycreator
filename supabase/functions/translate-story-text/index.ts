@@ -12,11 +12,16 @@ serve(async (req) => {
   }
 
   try {
-    const { text, targetLanguage } = await req.json();
+    const body = await req.json();
+    const targetLanguage = body.targetLanguage;
 
-    if (!text || !targetLanguage) {
+    // Support both single text and batch texts
+    const texts: string[] = body.texts || (body.text ? [body.text] : []);
+    const isBatch = !!body.texts;
+
+    if (texts.length === 0 || !targetLanguage) {
       return new Response(
-        JSON.stringify({ error: "Missing text or targetLanguage" }),
+        JSON.stringify({ error: "Missing text(s) or targetLanguage" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -27,7 +32,17 @@ serve(async (req) => {
     }
 
     const langName = targetLanguage === "ar" ? "Arabic" : "English";
-    const systemPrompt = `You are a translator for children's story books. Translate the given text to ${langName}. Keep it simple, age-appropriate, and preserve the storytelling tone. Return ONLY the translated text, nothing else.`;
+
+    let systemPrompt: string;
+    let userContent: string;
+
+    if (texts.length === 1) {
+      systemPrompt = `You are a translator for children's story books. Translate the given text to ${langName}. Keep it simple, age-appropriate, and preserve the storytelling tone. Return ONLY the translated text, nothing else.`;
+      userContent = texts[0];
+    } else {
+      systemPrompt = `You are a translator for children's story books. Translate the following numbered texts to ${langName}. Keep them simple, age-appropriate, and preserve the storytelling tone. Return ONLY a JSON array of translated strings in the same order, nothing else. Example: ["translated1", "translated2"]`;
+      userContent = texts.map((t, i) => `${i + 1}. ${t}`).join("\n");
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -39,7 +54,7 @@ serve(async (req) => {
         model: "google/gemini-2.5-flash-lite",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: text },
+          { role: "user", content: userContent },
         ],
       }),
     });
@@ -63,10 +78,30 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const translatedText = data.choices?.[0]?.message?.content?.trim() || "";
+    const rawContent = data.choices?.[0]?.message?.content?.trim() || "";
+
+    if (texts.length === 1 && !isBatch) {
+      // Single text: backward compatible response
+      return new Response(
+        JSON.stringify({ translatedText: rawContent }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Batch: parse JSON array from response
+    let translatedTexts: string[];
+    try {
+      // Strip markdown code fences if present
+      const cleaned = rawContent.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+      translatedTexts = JSON.parse(cleaned);
+      if (!Array.isArray(translatedTexts)) throw new Error("Not an array");
+    } catch {
+      console.error("Failed to parse batch response:", rawContent);
+      throw new Error("Translation response was not valid JSON array");
+    }
 
     return new Response(
-      JSON.stringify({ translatedText }),
+      JSON.stringify({ translatedTexts }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

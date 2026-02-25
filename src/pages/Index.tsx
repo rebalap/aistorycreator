@@ -64,6 +64,71 @@ const Index = () => {
   const [language, setLanguage] = useState<'en' | 'ar'>('en');
   const [isTranslating, setIsTranslating] = useState(false);
 
+  const handleLanguageChange = async (newLang: 'en' | 'ar') => {
+    if (newLang === language) return;
+
+    // Collect all non-empty texts: title first, then page texts
+    const textsToTranslate: string[] = [];
+    const hasTitle = storyTitle.trim() && storyTitle !== "Untitled Story";
+    if (hasTitle) textsToTranslate.push(storyTitle);
+    
+    const pageTexts = pages.map(p => p.text.trim());
+    const nonEmptyPageIndices: number[] = [];
+    pageTexts.forEach((t, i) => {
+      if (t) {
+        textsToTranslate.push(t);
+        nonEmptyPageIndices.push(i);
+      }
+    });
+
+    // If nothing to translate, just switch language
+    if (textsToTranslate.length === 0) {
+      setLanguage(newLang);
+      return;
+    }
+
+    setIsTranslating(true);
+    const toastId = toast.loading(`Translating to ${newLang === 'ar' ? 'Arabic' : 'English'}...`);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('translate-story-text', {
+        body: { texts: textsToTranslate, targetLanguage: newLang },
+      });
+
+      if (error) throw error;
+      if (!data?.translatedTexts || !Array.isArray(data.translatedTexts)) {
+        throw new Error('Invalid translation response');
+      }
+
+      const translated: string[] = data.translatedTexts;
+      let idx = 0;
+
+      // Apply title
+      if (hasTitle) {
+        setStoryTitle(translated[idx]);
+        setCoverTitle(translated[idx]);
+        idx++;
+      }
+
+      // Apply page texts
+      setPages(prev => prev.map((page, i) => {
+        const posInNonEmpty = nonEmptyPageIndices.indexOf(i);
+        if (posInNonEmpty !== -1) {
+          return { ...page, text: translated[idx + posInNonEmpty] };
+        }
+        return page;
+      }));
+
+      setLanguage(newLang);
+      toast.success(`Translated to ${newLang === 'ar' ? 'Arabic' : 'English'}`, { id: toastId });
+    } catch (err: any) {
+      console.error('Batch translation error:', err);
+      toast.error(err.message || 'Translation failed', { id: toastId });
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
   // Restore draft callback
   const handleRestoreDraft = useCallback((draft: StoryDraft) => {
     setStoryTitle(draft.storyTitle);
@@ -980,7 +1045,7 @@ const Index = () => {
           backgroundImages={backgroundImages}
           onBackgroundImagesChange={setBackgroundImages}
           language={language}
-          onLanguageChange={setLanguage}
+          onLanguageChange={handleLanguageChange}
         />
 
         {/* Page Thumbnails - Full width horizontal */}
