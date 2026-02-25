@@ -158,6 +158,7 @@ const Shelf = () => {
             updatedAt={story.updated_at}
             pageCount={pageCounts[story.id] || 0}
             hideDelete={hideDelete}
+            creatorEmail={hideDelete ? story.creator_email : undefined}
             onOpen={handleOpenStory}
             onDelete={handleDeleteStory}
             onDownload={handleDownloadStory}

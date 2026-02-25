@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Download, Trash2, MoreVertical, Calendar } from "lucide-react";
+import { BookOpen, Download, Trash2, MoreVertical, Calendar, User } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +27,7 @@ interface StoryCardProps {
   updatedAt: string;
   pageCount?: number;
   hideDelete?: boolean;
+  creatorEmail?: string;
   onOpen: (id: string) => void;
   onDelete: (id: string) => void;
   onDownload: (id: string) => void;
@@ -39,6 +40,7 @@ export const StoryCard = ({
   updatedAt,
   pageCount = 0,
   hideDelete = false,
+  creatorEmail,
   onOpen,
   onDelete,
   onDownload,
@@ -96,6 +98,12 @@ export const StoryCard = ({
         </div>
         <div className="p-3 space-y-1">
           <h3 className="font-medium text-foreground truncate">{title}</h3>
+          {creatorEmail && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground truncate">
+              <User className="w-3 h-3 shrink-0" />
+              <span className="truncate">{creatorEmail}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>{pageCount} {pageCount === 1 ? "page" : "pages"}</span>
             <div className="flex items-center gap-1">
