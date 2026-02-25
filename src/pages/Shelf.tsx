@@ -5,14 +5,15 @@ import { useStories, Story, StoryPage } from "@/hooks/useStories";
 import { StoryCard } from "@/components/StoryCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sparkles, Plus, Search, LogOut, Loader2, BookOpen, RefreshCw, WifiOff } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Sparkles, Plus, Search, LogOut, Loader2, BookOpen, RefreshCw, WifiOff, Users } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const Shelf = () => {
   const navigate = useNavigate();
   const { user, signOut, loading: authLoading } = useAuth();
-  const { stories, loading: storiesLoading, error: storiesError, deleteStory, getStoryWithPages, retryFetch } = useStories();
+  const { stories, communityStories, loading: storiesLoading, error: storiesError, deleteStory, getStoryWithPages, retryFetch } = useStories();
   const [searchQuery, setSearchQuery] = useState("");
   const [pageCounts, setPageCounts] = useState<Record<string, number>>({});
 
@@ -24,10 +25,11 @@ const Shelf = () => {
 
   useEffect(() => {
     const fetchPageCounts = async () => {
-      if (stories.length === 0) return;
+      const allStories = [...stories, ...communityStories];
+      if (allStories.length === 0) return;
       
       const counts: Record<string, number> = {};
-      for (const story of stories) {
+      for (const story of allStories) {
         const { data } = await supabase
           .from("story_pages")
           .select("id", { count: "exact" })
@@ -38,7 +40,7 @@ const Shelf = () => {
     };
     
     fetchPageCounts();
-  }, [stories]);
+  }, [stories, communityStories]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -46,7 +48,6 @@ const Shelf = () => {
   };
 
   const handleCreateNew = () => {
-    // Clear any existing draft before starting fresh
     localStorage.removeItem("story-draft");
     navigate("/?new=true");
   };
@@ -104,6 +105,10 @@ const Shelf = () => {
     story.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const filteredCommunityStories = communityStories.filter((story) =>
+    story.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -111,6 +116,56 @@ const Shelf = () => {
       </div>
     );
   }
+
+  const renderStoryGrid = (storyList: Story[], hideDelete = false) => {
+    if (storyList.length === 0) {
+      return (
+        <div className="text-center py-16 space-y-4">
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
+            <BookOpen className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <div>
+            <h3 className="text-lg font-medium text-foreground">
+              {searchQuery ? "No stories found" : hideDelete ? "No community stories yet" : "No stories yet"}
+            </h3>
+            <p className="text-muted-foreground mt-1">
+              {searchQuery
+                ? "Try a different search term"
+                : hideDelete
+                  ? "Stories created by others will appear here"
+                  : "Create your first story to get started"
+              }
+            </p>
+          </div>
+          {!searchQuery && !hideDelete && (
+            <Button onClick={handleCreateNew}>
+              <Plus className="w-4 h-4 mr-2" />
+              Create Story
+            </Button>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        {storyList.map((story) => (
+          <StoryCard
+            key={story.id}
+            id={story.id}
+            title={story.title}
+            coverImageUrl={story.cover_image_url}
+            updatedAt={story.updated_at}
+            pageCount={pageCounts[story.id] || 0}
+            hideDelete={hideDelete}
+            onOpen={handleOpenStory}
+            onDelete={handleDeleteStory}
+            onDownload={handleDownloadStory}
+          />
+        ))}
+      </div>
+    );
+  };
 
   return (
     <main className="min-h-screen bg-background">
@@ -122,9 +177,7 @@ const Shelf = () => {
             </div>
             <div>
               <h1 className="text-lg font-bold text-foreground">My Story Shelf</h1>
-              <p className="text-xs text-muted-foreground">
-                {user?.email}
-              </p>
+              <p className="text-xs text-muted-foreground">{user?.email}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -140,7 +193,6 @@ const Shelf = () => {
       </header>
 
       <div className="container mx-auto px-4 py-6 space-y-6">
-        {/* Search */}
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -151,7 +203,6 @@ const Shelf = () => {
           />
         </div>
 
-        {/* Stories Grid */}
         {storiesLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -170,45 +221,25 @@ const Shelf = () => {
               Try Again
             </Button>
           </div>
-        ) : filteredStories.length === 0 ? (
-          <div className="text-center py-16 space-y-4">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
-              <BookOpen className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <div>
-              <h3 className="text-lg font-medium text-foreground">
-                {searchQuery ? "No stories found" : "No stories yet"}
-              </h3>
-              <p className="text-muted-foreground mt-1">
-                {searchQuery 
-                  ? "Try a different search term" 
-                  : "Create your first story to get started"
-                }
-              </p>
-            </div>
-            {!searchQuery && (
-              <Button onClick={handleCreateNew}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create Story
-              </Button>
-            )}
-          </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {filteredStories.map((story) => (
-              <StoryCard
-                key={story.id}
-                id={story.id}
-                title={story.title}
-                coverImageUrl={story.cover_image_url}
-                updatedAt={story.updated_at}
-                pageCount={pageCounts[story.id] || 0}
-                onOpen={handleOpenStory}
-                onDelete={handleDeleteStory}
-                onDownload={handleDownloadStory}
-              />
-            ))}
-          </div>
+          <Tabs defaultValue="my-stories">
+            <TabsList>
+              <TabsTrigger value="my-stories">
+                <BookOpen className="w-4 h-4 mr-2" />
+                My Stories ({filteredStories.length})
+              </TabsTrigger>
+              <TabsTrigger value="community">
+                <Users className="w-4 h-4 mr-2" />
+                Community ({filteredCommunityStories.length})
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="my-stories">
+              {renderStoryGrid(filteredStories)}
+            </TabsContent>
+            <TabsContent value="community">
+              {renderStoryGrid(filteredCommunityStories, true)}
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </main>

@@ -26,6 +26,7 @@ interface StoryCardProps {
   coverImageUrl: string | null;
   updatedAt: string;
   pageCount?: number;
+  hideDelete?: boolean;
   onOpen: (id: string) => void;
   onDelete: (id: string) => void;
   onDownload: (id: string) => void;
@@ -37,6 +38,7 @@ export const StoryCard = ({
   coverImageUrl,
   updatedAt,
   pageCount = 0,
+  hideDelete = false,
   onOpen,
   onDelete,
   onDownload,
@@ -79,13 +81,15 @@ export const StoryCard = ({
                   <Download className="mr-2 h-4 w-4" />
                   Download
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setShowDeleteDialog(true)}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
+                {!hideDelete && (
+                  <DropdownMenuItem
+                    onClick={() => setShowDeleteDialog(true)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
