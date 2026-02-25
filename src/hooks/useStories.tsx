@@ -21,6 +21,7 @@ export interface Story {
   created_at: string;
   updated_at: string;
   pages?: StoryPage[];
+  creator_email?: string;
 }
 
 export const useStories = () => {
@@ -41,7 +42,7 @@ export const useStories = () => {
 
     try {
       setError(null);
-      const [ownResult, allResult] = await Promise.all([
+      const [ownResult, allResult, profilesResult] = await Promise.all([
         supabase
           .from("stories")
           .select("*")
@@ -52,6 +53,9 @@ export const useStories = () => {
           .select("*")
           .neq("user_id", user.id)
           .order("updated_at", { ascending: false }),
+        supabase
+          .from("profiles")
+          .select("id, email"),
       ]);
 
       if (ownResult.error) {
@@ -63,8 +67,14 @@ export const useStories = () => {
       }
       if (allResult.error) throw allResult.error;
 
-      setStories(ownResult.data || []);
-      setCommunityStories(allResult.data || []);
+      const emailMap: Record<string, string> = {};
+      (profilesResult.data || []).forEach((p: any) => { emailMap[p.id] = p.email; });
+
+      const enrichWithEmail = (stories: any[]) =>
+        stories.map(s => ({ ...s, creator_email: emailMap[s.user_id] || undefined }));
+
+      setStories(enrichWithEmail(ownResult.data || []));
+      setCommunityStories(enrichWithEmail(allResult.data || []));
     } catch (err: any) {
       console.error("Error fetching stories:", err);
       setError("Unable to load stories. Please check your connection and try again.");
