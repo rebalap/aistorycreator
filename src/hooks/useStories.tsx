@@ -26,12 +26,14 @@ export interface Story {
 export const useStories = () => {
   const { user } = useAuth();
   const [stories, setStories] = useState<Story[]>([]);
+  const [communityStories, setCommunityStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchStories = async (attempt = 0): Promise<void> => {
     if (!user) {
       setStories([]);
+      setCommunityStories([]);
       setLoading(false);
       setError(null);
       return;
@@ -39,21 +41,30 @@ export const useStories = () => {
 
     try {
       setError(null);
-      const { data, error: fetchError } = await supabase
-        .from("stories")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("updated_at", { ascending: false });
+      const [ownResult, allResult] = await Promise.all([
+        supabase
+          .from("stories")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("updated_at", { ascending: false }),
+        supabase
+          .from("stories")
+          .select("*")
+          .neq("user_id", user.id)
+          .order("updated_at", { ascending: false }),
+      ]);
 
-      if (fetchError) {
-        // Retry on transient errors (503, connection issues)
-        if (attempt < 3 && (fetchError.code === "PGRST002" || fetchError.message?.includes("503"))) {
+      if (ownResult.error) {
+        if (attempt < 3 && (ownResult.error.code === "PGRST002" || ownResult.error.message?.includes("503"))) {
           await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
           return fetchStories(attempt + 1);
         }
-        throw fetchError;
+        throw ownResult.error;
       }
-      setStories(data || []);
+      if (allResult.error) throw allResult.error;
+
+      setStories(ownResult.data || []);
+      setCommunityStories(allResult.data || []);
     } catch (err: any) {
       console.error("Error fetching stories:", err);
       setError("Unable to load stories. Please check your connection and try again.");
@@ -216,6 +227,7 @@ export const useStories = () => {
 
   return {
     stories,
+    communityStories,
     loading,
     error,
     fetchStories,
