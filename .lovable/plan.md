@@ -1,74 +1,43 @@
 
 
-## Plan: Auto-translate all content when language toggle changes
+## Remove Authentication Requirement
 
-### Problem
-Currently, switching the language toggle only changes the text direction and font. It does not translate the story title or page texts. The user expects toggling to Arabic to automatically translate everything.
-
-### Approach
-Modify the `onLanguageChange` handler in `Index.tsx` to:
-
-1. When the language toggle changes (e.g. EN → AR or AR → EN), collect the story title and all page texts
-2. Call the existing `translate-story-text` edge function for each piece of text (batch into a single call by sending all texts together)
-3. Update the story title, cover title, and all page texts with the translated results
-4. Show a loading indicator during translation
+Make the app publicly accessible so anyone can use the story creator without signing in. The app will work as a portfolio piece.
 
 ### Changes
 
-**1. Update `translate-story-text` edge function** (`supabase/functions/translate-story-text/index.ts`)
-- Accept an array of texts instead of a single text: `{ texts: string[], targetLanguage }`
-- Return `{ translatedTexts: string[] }`
-- Translate all texts in a single AI call for efficiency (send them numbered so the model returns them in order)
+**1. `src/pages/Index.tsx`**
+- Remove the auth redirect (`useEffect` that navigates to `/auth` when not logged in)
+- Remove the Sign In / Sign Out buttons from the header
+- Make save functionality gracefully handle unauthenticated users (show a toast saying "Sign in to save" or just disable save)
+- Keep `useAuth` import for optional features but don't gate the editor behind it
 
-**2. Update `Index.tsx`**
-- Replace `onLanguageChange={setLanguage}` with a new `handleLanguageChange` function
-- This function will:
-  - Show a loading toast/state
-  - Collect: story title + all page texts that are non-empty
-  - Call the updated edge function with all texts and the target language
-  - Apply translated results: update `storyTitle`, `coverTitle`, and each page's `text`
-  - Set the new language state
-  - Handle errors gracefully (revert language if translation fails)
-- Add a translating overlay/spinner so the user knows translation is in progress
-- The existing single-text "Translate" button next to the textarea can remain as-is (for translating individual pages), or be updated to use the same batch endpoint
+**2. `src/pages/Shelf.tsx`**
+- Remove the auth redirect that navigates to `/auth`
+- Remove the sign out button or make it conditional
+- Allow browsing community stories without login
+
+**3. `src/App.tsx`**
+- Keep the `/auth` route available (users can still optionally sign in to save stories) but it won't be forced
+
+### What stays
+- The Auth page remains accessible at `/auth` for users who want to sign in to save stories
+- `useAuth` hook and `AuthProvider` remain so logged-in users still get save/load functionality
+- Edge functions keep their auth checks (generation works without user auth since the edge functions use the anon key)
+
+### What gets removed
+- Forced redirects to `/auth` from Index and Shelf pages
+- Sign In button in the header (replaced with nothing, or optionally a subtle "Sign in to save" link)
+- Sign Out button when not needed
 
 ### Technical Details
 
-**Edge function prompt update:**
-```
-Translate the following numbered children's story texts to [Arabic/English].
-Keep them simple, age-appropriate, and preserve the storytelling tone.
-Return ONLY a JSON array of translated strings in the same order.
+**`Index.tsx` changes:**
+- Delete lines 175-180 (auth redirect useEffect)
+- Lines 1024-1035: Remove the auth button block (Sign In / Sign Out), or make save-related buttons conditional on `user` being present
+- Line 251-254: Instead of redirecting to auth, show a toast "Sign in to save your stories"
 
-1. [title]
-2. [page 1 text]
-3. [page 2 text]
-...
-```
-
-**`handleLanguageChange` pseudocode:**
-```typescript
-const handleLanguageChange = async (newLang: 'en' | 'ar') => {
-  if (newLang === language) return;
-  
-  const textsToTranslate = [storyTitle, ...pages.map(p => p.text)].filter(Boolean);
-  if (textsToTranslate.length === 0) { setLanguage(newLang); return; }
-  
-  setIsTranslating(true);
-  const { data, error } = await supabase.functions.invoke('translate-story-text', {
-    body: { texts: textsToTranslate, targetLanguage: newLang }
-  });
-  
-  // Apply: first result = title, rest = page texts
-  setStoryTitle(translatedTexts[0]);
-  setCoverTitle(translatedTexts[0]);
-  // Update each page text...
-  setLanguage(newLang);
-  setIsTranslating(false);
-};
-```
-
-### Files to modify
-1. **`supabase/functions/translate-story-text/index.ts`** — Support batch translation (array of texts)
-2. **`src/pages/Index.tsx`** — New `handleLanguageChange` that translates all content on toggle
+**`Shelf.tsx` changes:**
+- Delete lines 20-24 (auth redirect useEffect)
+- Make sign out button conditional on `user` being present
 
