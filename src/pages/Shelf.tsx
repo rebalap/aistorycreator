@@ -17,6 +17,11 @@ const Shelf = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [pageCounts, setPageCounts] = useState<Record<string, number>>({});
 
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     const fetchPageCounts = async () => {
@@ -181,11 +186,9 @@ const Shelf = () => {
               <Plus className="w-4 h-4 mr-2" />
               New Story
             </Button>
-            {user && (
-              <Button variant="outline" size="icon" onClick={handleSignOut}>
-                <LogOut className="w-4 h-4" />
-              </Button>
-            )}
+            <Button variant="outline" size="icon" onClick={handleSignOut}>
+              <LogOut className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </header>

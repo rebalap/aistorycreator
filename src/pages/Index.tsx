@@ -172,6 +172,12 @@ const Index = () => {
 
   const currentPage = pages[currentPageIndex];
 
+  // Redirect unauthenticated users to auth page
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [user, authLoading, navigate]);
 
   // Load story from URL param (skip if draft was already restored)
   useEffect(() => {
@@ -244,7 +250,7 @@ const Index = () => {
 
   const handleSaveStory = async (title: string) => {
     if (!user) {
-      toast.error("Sign in to save your stories");
+      navigate("/auth");
       return;
     }
 
@@ -1015,9 +1021,16 @@ const Index = () => {
               <RefreshCw className="w-4 h-4 mr-2" />
               Reset
             </Button>
-            {user && (
+            {authLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : user ? (
               <Button variant="ghost" size="icon" onClick={handleSignOut}>
                 <LogOut className="w-4 h-4" />
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => navigate("/auth")}>
+                <LogIn className="w-4 h-4 mr-2" />
+                Sign In
               </Button>
             )}
           </div>
