@@ -1156,16 +1156,17 @@ const Index = () => {
                             className="absolute bottom-2 right-2"
                             disabled={isTranslating}
                             onClick={async () => {
+                              const nextLang: 'en' | 'ar' | 'te' = language === 'en' ? 'ar' : language === 'ar' ? 'te' : 'en';
                               setIsTranslating(true);
                               try {
                                 const { data, error } = await supabase.functions.invoke('translate-story-text', {
-                                  body: { text: currentPage.text, targetLanguage: language === 'en' ? 'ar' : 'en' },
+                                  body: { text: currentPage.text, targetLanguage: nextLang },
                                 });
                                 if (error) throw error;
                                 if (data?.translatedText) {
                                   handleTextChange(data.translatedText);
-                                  setLanguage(language === 'en' ? 'ar' : 'en');
-                                  toast.success(`Translated to ${language === 'en' ? 'Arabic' : 'English'}`);
+                                  setLanguage(nextLang);
+                                  toast.success(`Translated to ${langName(nextLang)}`);
                                 }
                               } catch (err: any) {
                                 console.error('Translation error:', err);
@@ -1181,12 +1182,12 @@ const Index = () => {
                               <Languages className="w-4 h-4" />
                             )}
                             <span className="ml-1 text-xs">
-                              {language === 'en' ? 'To عربي' : 'To EN'}
+                              {language === 'en' ? 'To عربي' : language === 'ar' ? 'To తెలుగు' : 'To EN'}
                             </span>
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Translate text to {language === 'en' ? 'Arabic' : 'English'}</p>
+                          <p>Translate text to {language === 'en' ? 'Arabic' : language === 'ar' ? 'Telugu' : 'English'}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
