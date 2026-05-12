@@ -45,10 +45,15 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const action = url.searchParams.get("action") ?? "submit";
+    // Accept action/video_id/story_id from query string OR JSON body (invoke() strips query strings).
+    let bodyJson: any = null;
+    if (req.method !== "GET") {
+      try { bodyJson = await req.clone().json(); } catch { bodyJson = null; }
+    }
+    const action = url.searchParams.get("action") ?? bodyJson?.action ?? "submit";
 
     if (action === "status") {
-      const videoId = url.searchParams.get("video_id");
+      const videoId = url.searchParams.get("video_id") ?? bodyJson?.video_id;
       if (!videoId) {
         return new Response(JSON.stringify({ error: "video_id required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
