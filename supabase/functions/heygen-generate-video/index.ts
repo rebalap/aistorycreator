@@ -177,14 +177,27 @@ serve(async (req) => {
       title: (story.title || "Story video").slice(0, 150),
     };
 
-    const res = await fetch("https://api.heygen.com/v2/video/generate", {
-      method: "POST",
-      headers: {
-        "X-Api-Key": HEYGEN_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(() => ctrl.abort(), 60_000);
+    let res: Response;
+    try {
+      res = await fetch("https://api.heygen.com/v2/video/generate", {
+        method: "POST",
+        headers: {
+          "X-Api-Key": HEYGEN_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        signal: ctrl.signal,
+      });
+    } catch (e) {
+      clearTimeout(timeoutId);
+      console.error("HeyGen submit fetch failed/timed out", e);
+      return new Response(JSON.stringify({ error: "HeyGen submission timed out. Try fewer pages or smaller images." }), {
+        status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    clearTimeout(timeoutId);
     const json = await res.json();
     if (!res.ok || !json?.data?.video_id) {
       console.error("HeyGen submit error", res.status, json);
