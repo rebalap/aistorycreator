@@ -62,25 +62,21 @@ serve(async (req) => {
 
     const { currentImage, editPrompt, characterImage, title } = await req.json();
 
-    if (!currentImage) {
-      return new Response(
-        JSON.stringify({ error: "Current cover image is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!currentImage || typeof currentImage !== "string" || currentImage.length > 10_000_000) {
+      return new Response(JSON.stringify({ error: "Invalid current cover image" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-
-    if (!editPrompt || !editPrompt.trim()) {
-      return new Response(
-        JSON.stringify({ error: "Edit prompt is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!editPrompt || typeof editPrompt !== "string" || !editPrompt.trim() || editPrompt.length > 1000) {
+      return new Response(JSON.stringify({ error: "Edit prompt is required (max 1000 characters)" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (title && (typeof title !== "string" || title.length > 200)) {
+      return new Response(JSON.stringify({ error: "Invalid title" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       console.error("LOVABLE_API_KEY is not configured");
       return new Response(
-        JSON.stringify({ error: "API key not configured" }),
+        JSON.stringify({ error: "Service unavailable. Please try again later." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -189,7 +185,7 @@ Apply the edit while maintaining cover quality. The image must be TEXT-FREE.`;
   } catch (error) {
     console.error("Error editing cover:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ error: "Cover editing failed. Please try again." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

@@ -19,16 +19,32 @@ serve(async (req) => {
     const texts: string[] = body.texts || (body.text ? [body.text] : []);
     const isBatch = !!body.texts;
 
-    if (texts.length === 0 || !targetLanguage) {
+    if (!targetLanguage || !["en", "ar", "te"].includes(targetLanguage)) {
       return new Response(
-        JSON.stringify({ error: "Missing text(s) or targetLanguage" }),
+        JSON.stringify({ error: "Invalid targetLanguage" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (texts.length === 0 || texts.length > 50) {
+      return new Response(
+        JSON.stringify({ error: "Provide between 1 and 50 texts" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (texts.some(t => typeof t !== "string" || t.length > 5000)) {
+      return new Response(
+        JSON.stringify({ error: "Each text must be a string up to 5000 characters" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+      console.error("LOVABLE_API_KEY is not configured");
+      return new Response(
+        JSON.stringify({ error: "Service unavailable. Please try again later." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const langName = targetLanguage === "ar" ? "Arabic" : targetLanguage === "te" ? "Telugu" : "English";

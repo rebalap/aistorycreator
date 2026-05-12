@@ -62,25 +62,21 @@ serve(async (req) => {
 
     const { characterImage, title, backgroundImages } = await req.json();
 
-    if (!characterImage) {
-      return new Response(
-        JSON.stringify({ error: "Character image is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!characterImage || typeof characterImage !== "string" || characterImage.length > 10_000_000) {
+      return new Response(JSON.stringify({ error: "Invalid character image" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-
-    if (!title || !title.trim()) {
-      return new Response(
-        JSON.stringify({ error: "Story title is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!title || typeof title !== "string" || !title.trim() || title.length > 200) {
+      return new Response(JSON.stringify({ error: "Story title is required (max 200 characters)" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (backgroundImages && (!Array.isArray(backgroundImages) || backgroundImages.length > 10)) {
+      return new Response(JSON.stringify({ error: "Invalid background images" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       console.error("LOVABLE_API_KEY is not configured");
       return new Response(
-        JSON.stringify({ error: "API key not configured" }),
+        JSON.stringify({ error: "Service unavailable. Please try again later." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -191,7 +187,7 @@ This is a COVER image background - make it visually stunning but completely TEXT
   } catch (error) {
     console.error("Error generating cover:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ error: "Cover generation failed. Please try again." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
