@@ -111,9 +111,9 @@ export const GenerateVideoDialog = ({ open, onOpenChange, storyId, hasCover, onC
     const TIMEOUT_MS = 12 * 60 * 1000;
     while (Date.now() - start < TIMEOUT_MS) {
       await new Promise((r) => setTimeout(r, 6000));
-      const { data, error } = await supabase.functions.invoke(
-        `heygen-generate-video?action=status&video_id=${encodeURIComponent(videoId)}&story_id=${encodeURIComponent(storyId!)}`,
-      );
+      const { data, error } = await supabase.functions.invoke("heygen-generate-video", {
+        body: { action: "status", video_id: videoId, story_id: storyId },
+      });
       if (error) { setStatusMsg("Status check failed, retrying…"); continue; }
       const d = data as any;
       if (d.status === "completed" && d.video_url) {
