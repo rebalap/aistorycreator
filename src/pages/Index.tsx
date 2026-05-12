@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Sparkles, Download, RefreshCw, Trash2, Save, BookOpen, LogIn, LogOut, Loader2, Cloud, CloudOff, Languages } from "lucide-react";
+import { Sparkles, Download, RefreshCw, Trash2, Save, BookOpen, LogIn, LogOut, Loader2, Cloud, CloudOff, Languages, Video } from "lucide-react";
+import { GenerateVideoDialog } from "@/components/GenerateVideoDialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -63,6 +64,8 @@ const Index = () => {
    const [titleFontSize, setTitleFontSize] = useState<TitleFontSize>('medium');
   const [language, setLanguage] = useState<'en' | 'ar' | 'te'>('en');
   const [isTranslating, setIsTranslating] = useState(false);
+  const [showVideoDialog, setShowVideoDialog] = useState(false);
+  const [storyVideoUrl, setStoryVideoUrl] = useState<string | null>(null);
 
   const langName = (l: 'en' | 'ar' | 'te') => l === 'ar' ? 'Arabic' : l === 'te' ? 'Telugu' : 'English';
 
@@ -200,6 +203,7 @@ const Index = () => {
       setBackgroundImages(story.background_image_urls || []);
       setCoverImage(story.cover_image_url || null);
       setCoverTitle(story.title);
+      setStoryVideoUrl((story as any).video_url || null);
       const lang = (story as any).language;
       setLanguage(lang === 'ar' || lang === 'te' ? lang : 'en');
       
@@ -1020,6 +1024,16 @@ const Index = () => {
               <Download className="w-4 h-4 mr-2" />
               Download All ({pages.filter((p) => p.image).length + (coverImage ? 1 : 0)})
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowVideoDialog(true)}
+              disabled={!user || !currentStoryId || pages.filter((p) => p.image && p.text.trim()).length === 0}
+              title={!user ? "Sign in" : !currentStoryId ? "Save the story first" : undefined}
+            >
+              <Video className="w-4 h-4 mr-2" />
+              Generate Video
+            </Button>
             <Button variant="outline" size="sm" onClick={handleReset}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Reset
@@ -1300,6 +1314,25 @@ const Index = () => {
         defaultTitle={storyTitle}
         isSaving={isSaving}
       />
+
+      <GenerateVideoDialog
+        open={showVideoDialog}
+        onOpenChange={setShowVideoDialog}
+        storyId={currentStoryId}
+        hasCover={!!coverImage}
+        onCompleted={(url) => setStoryVideoUrl(url)}
+      />
+
+      {storyVideoUrl && (
+        <div className="fixed bottom-4 right-4 z-40 w-80 bg-card border rounded-lg shadow-xl p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium flex items-center gap-1"><Video className="w-4 h-4" /> Book video</span>
+            <button onClick={() => setStoryVideoUrl(null)} className="text-xs text-muted-foreground hover:text-foreground">close</button>
+          </div>
+          <video src={storyVideoUrl} controls className="w-full rounded" />
+          <a href={storyVideoUrl} target="_blank" rel="noreferrer" className="text-xs text-primary underline">Open on HeyGen</a>
+        </div>
+      )}
 
     </main>
   );

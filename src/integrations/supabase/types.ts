@@ -70,33 +70,45 @@ export type Database = {
           character_image_url: string | null
           cover_image_url: string | null
           created_at: string | null
+          heygen_video_id: string | null
           id: string
           language: string
           title: string
           updated_at: string | null
           user_id: string
+          video_generated_at: string | null
+          video_thumbnail_url: string | null
+          video_url: string | null
         }
         Insert: {
           background_image_urls?: string[] | null
           character_image_url?: string | null
           cover_image_url?: string | null
           created_at?: string | null
+          heygen_video_id?: string | null
           id?: string
           language?: string
           title?: string
           updated_at?: string | null
           user_id: string
+          video_generated_at?: string | null
+          video_thumbnail_url?: string | null
+          video_url?: string | null
         }
         Update: {
           background_image_urls?: string[] | null
           character_image_url?: string | null
           cover_image_url?: string | null
           created_at?: string | null
+          heygen_video_id?: string | null
           id?: string
           language?: string
           title?: string
           updated_at?: string | null
           user_id?: string
+          video_generated_at?: string | null
+          video_thumbnail_url?: string | null
+          video_url?: string | null
         }
         Relationships: []
       }
