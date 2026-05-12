@@ -1,74 +1,34 @@
+## Plan: Add Telugu Language Support
 
-
-## Plan: Auto-translate all content when language toggle changes
-
-### Problem
-Currently, switching the language toggle only changes the text direction and font. It does not translate the story title or page texts. The user expects toggling to Arabic to automatically translate everything.
-
-### Approach
-Modify the `onLanguageChange` handler in `Index.tsx` to:
-
-1. When the language toggle changes (e.g. EN → AR or AR → EN), collect the story title and all page texts
-2. Call the existing `translate-story-text` edge function for each piece of text (batch into a single call by sending all texts together)
-3. Update the story title, cover title, and all page texts with the translated results
-4. Show a loading indicator during translation
+Extend the existing English/Arabic toggle to include Telugu (తెలుగు) as a third option. Telugu is LTR like English, so no RTL handling is needed — just font support and translation routing.
 
 ### Changes
 
-**1. Update `translate-story-text` edge function** (`supabase/functions/translate-story-text/index.ts`)
-- Accept an array of texts instead of a single text: `{ texts: string[], targetLanguage }`
-- Return `{ translatedTexts: string[] }`
-- Translate all texts in a single AI call for efficiency (send them numbered so the model returns them in order)
+1. **Type updates** — Expand the `language` union from `"en" | "ar"` to `"en" | "ar" | "te"` across:
+   - `src/components/MetadataBar.tsx`
+   - `src/pages/Index.tsx`
+   - `src/components/StoryPagePreview.tsx`
+   - `src/hooks/useAutosave.tsx` (`StoryDraft.language`)
+   - `src/hooks/useStories.tsx` (createStory signature)
 
-**2. Update `Index.tsx`**
-- Replace `onLanguageChange={setLanguage}` with a new `handleLanguageChange` function
-- This function will:
-  - Show a loading toast/state
-  - Collect: story title + all page texts that are non-empty
-  - Call the updated edge function with all texts and the target language
-  - Apply translated results: update `storyTitle`, `coverTitle`, and each page's `text`
-  - Set the new language state
-  - Handle errors gracefully (revert language if translation fails)
-- Add a translating overlay/spinner so the user knows translation is in progress
-- The existing single-text "Translate" button next to the textarea can remain as-is (for translating individual pages), or be updated to use the same batch endpoint
+2. **MetadataBar UI** — Add a third `ToggleGroupItem` with value `"te"` and label `తెలుగు`.
 
-### Technical Details
+3. **Font support** (`index.html`) — Add Google Fonts link for `Noto Sans Telugu` alongside the existing Noto Naskh Arabic.
 
-**Edge function prompt update:**
-```
-Translate the following numbered children's story texts to [Arabic/English].
-Keep them simple, age-appropriate, and preserve the storytelling tone.
-Return ONLY a JSON array of translated strings in the same order.
+4. **Font-family application** (`Index.tsx` / `StoryPagePreview.tsx` / canvas download code) — When `language === "te"`, apply `'Noto Sans Telugu', sans-serif`. Direction stays LTR.
 
-1. [title]
-2. [page 1 text]
-3. [page 2 text]
-...
-```
+5. **Translation edge function** (`supabase/functions/translate-story-text/index.ts`) — Extend the `langName` mapping:
+   ```ts
+   const langName = targetLanguage === "ar" ? "Arabic"
+                  : targetLanguage === "te" ? "Telugu"
+                  : "English";
+   ```
+   Batch logic and JSON-array parsing remain unchanged.
 
-**`handleLanguageChange` pseudocode:**
-```typescript
-const handleLanguageChange = async (newLang: 'en' | 'ar') => {
-  if (newLang === language) return;
-  
-  const textsToTranslate = [storyTitle, ...pages.map(p => p.text)].filter(Boolean);
-  if (textsToTranslate.length === 0) { setLanguage(newLang); return; }
-  
-  setIsTranslating(true);
-  const { data, error } = await supabase.functions.invoke('translate-story-text', {
-    body: { texts: textsToTranslate, targetLanguage: newLang }
-  });
-  
-  // Apply: first result = title, rest = page texts
-  setStoryTitle(translatedTexts[0]);
-  setCoverTitle(translatedTexts[0]);
-  // Update each page text...
-  setLanguage(newLang);
-  setIsTranslating(false);
-};
-```
+6. **Translation handler** (`Index.tsx` `handleLanguageChange`) — Already generic over `newLang`; just widen the parameter type so Telugu triggers the same batch translate flow (English↔Telugu, Arabic↔Telugu, etc.).
 
-### Files to modify
-1. **`supabase/functions/translate-story-text/index.ts`** — Support batch translation (array of texts)
-2. **`src/pages/Index.tsx`** — New `handleLanguageChange` that translates all content on toggle
+7. **DB** — No schema change. The existing `language text` column already accepts `'te'`.
 
+### Notes
+- Telugu uses LTR direction, so no `dir="rtl"` toggling for it.
+- All three languages translate to/from each other via the same edge function call.

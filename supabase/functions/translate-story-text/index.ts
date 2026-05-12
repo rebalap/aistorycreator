@@ -31,7 +31,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const langName = targetLanguage === "ar" ? "Arabic" : "English";
+    const langName = targetLanguage === "ar" ? "Arabic" : targetLanguage === "te" ? "Telugu" : "English";
 
     let systemPrompt: string;
     let userContent: string;

@@ -61,10 +61,12 @@ const Index = () => {
   const [titleFontStyle, setTitleFontStyle] = useState<TitleFontStyle>('classic');
   const [titleColor, setTitleColor] = useState<string>('#FFFFFF');
    const [titleFontSize, setTitleFontSize] = useState<TitleFontSize>('medium');
-  const [language, setLanguage] = useState<'en' | 'ar'>('en');
+  const [language, setLanguage] = useState<'en' | 'ar' | 'te'>('en');
   const [isTranslating, setIsTranslating] = useState(false);
 
-  const handleLanguageChange = async (newLang: 'en' | 'ar') => {
+  const langName = (l: 'en' | 'ar' | 'te') => l === 'ar' ? 'Arabic' : l === 'te' ? 'Telugu' : 'English';
+
+  const handleLanguageChange = async (newLang: 'en' | 'ar' | 'te') => {
     if (newLang === language) return;
 
     // Collect all non-empty texts: title first, then page texts
@@ -88,7 +90,7 @@ const Index = () => {
     }
 
     setIsTranslating(true);
-    const toastId = toast.loading(`Translating to ${newLang === 'ar' ? 'Arabic' : 'English'}...`);
+    const toastId = toast.loading(`Translating to ${langName(newLang)}...`);
 
     try {
       const { data, error } = await supabase.functions.invoke('translate-story-text', {
@@ -120,7 +122,7 @@ const Index = () => {
       }));
 
       setLanguage(newLang);
-      toast.success(`Translated to ${newLang === 'ar' ? 'Arabic' : 'English'}`, { id: toastId });
+      toast.success(`Translated to ${langName(newLang)}`, { id: toastId });
     } catch (err: any) {
       console.error('Batch translation error:', err);
       toast.error(err.message || 'Translation failed', { id: toastId });
@@ -198,7 +200,8 @@ const Index = () => {
       setBackgroundImages(story.background_image_urls || []);
       setCoverImage(story.cover_image_url || null);
       setCoverTitle(story.title);
-      setLanguage((story as any).language === 'ar' ? 'ar' : 'en');
+      const lang = (story as any).language;
+      setLanguage(lang === 'ar' || lang === 'te' ? lang : 'en');
       
       if (loadedPages.length > 0) {
         setPages(loadedPages.map(p => ({
@@ -581,7 +584,7 @@ const Index = () => {
   const renderPageToBlob = async (page: StoryPage): Promise<Blob | null> => {
     if (!page.image) return null;
 
-    const fontFamily = language === 'ar' ? '"Noto Naskh Arabic", "Tahoma", sans-serif' : '"Comic Sans MS", "Comic Sans", cursive';
+    const fontFamily = language === 'ar' ? '"Noto Naskh Arabic", "Tahoma", sans-serif' : language === 'te' ? '"Noto Sans Telugu", sans-serif' : '"Comic Sans MS", "Comic Sans", cursive';
     const fontSize = 48;
 
     // Wait for all fonts to be ready first
@@ -1138,10 +1141,10 @@ const Index = () => {
                   <Textarea
                     value={currentPage.text}
                     onChange={(e) => handleTextChange(e.target.value)}
-                    placeholder={language === 'ar' ? "في يوم من الأيام، في غابة سحرية..." : "Once upon a time, in a magical forest..."}
+                    placeholder={language === 'ar' ? "في يوم من الأيام، في غابة سحرية..." : language === 'te' ? "ఒకప్పుడు ఒక మాయా అడవిలో..." : "Once upon a time, in a magical forest..."}
                     className="min-h-[140px] resize-none text-base"
                     dir={language === 'ar' ? 'rtl' : 'ltr'}
-                    style={{ fontFamily: language === 'ar' ? '"Noto Naskh Arabic", "Tahoma", sans-serif' : 'inherit' }}
+                    style={{ fontFamily: language === 'ar' ? '"Noto Naskh Arabic", "Tahoma", sans-serif' : language === 'te' ? '"Noto Sans Telugu", sans-serif' : 'inherit' }}
                   />
                   {currentPage.text.trim() && (
                     <TooltipProvider>
@@ -1153,16 +1156,17 @@ const Index = () => {
                             className="absolute bottom-2 right-2"
                             disabled={isTranslating}
                             onClick={async () => {
+                              const nextLang: 'en' | 'ar' | 'te' = language === 'en' ? 'ar' : language === 'ar' ? 'te' : 'en';
                               setIsTranslating(true);
                               try {
                                 const { data, error } = await supabase.functions.invoke('translate-story-text', {
-                                  body: { text: currentPage.text, targetLanguage: language === 'en' ? 'ar' : 'en' },
+                                  body: { text: currentPage.text, targetLanguage: nextLang },
                                 });
                                 if (error) throw error;
                                 if (data?.translatedText) {
                                   handleTextChange(data.translatedText);
-                                  setLanguage(language === 'en' ? 'ar' : 'en');
-                                  toast.success(`Translated to ${language === 'en' ? 'Arabic' : 'English'}`);
+                                  setLanguage(nextLang);
+                                  toast.success(`Translated to ${langName(nextLang)}`);
                                 }
                               } catch (err: any) {
                                 console.error('Translation error:', err);
@@ -1178,12 +1182,12 @@ const Index = () => {
                               <Languages className="w-4 h-4" />
                             )}
                             <span className="ml-1 text-xs">
-                              {language === 'en' ? 'To عربي' : 'To EN'}
+                              {language === 'en' ? 'To عربي' : language === 'ar' ? 'To తెలుగు' : 'To EN'}
                             </span>
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Translate text to {language === 'en' ? 'Arabic' : 'English'}</p>
+                          <p>Translate text to {language === 'en' ? 'Arabic' : language === 'ar' ? 'Telugu' : 'English'}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
