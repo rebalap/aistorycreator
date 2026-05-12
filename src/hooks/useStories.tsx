@@ -99,7 +99,7 @@ export const useStories = () => {
     if (!user) return;
 
     const channel = supabase
-      .channel('stories-realtime')
+      .channel(`stories-realtime-${user.id}-${Math.random().toString(36).slice(2)}`)
       .on(
         'postgres_changes',
         {
