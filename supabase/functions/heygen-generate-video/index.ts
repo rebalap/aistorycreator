@@ -76,8 +76,7 @@ serve(async (req) => {
 
       // Persist when completed
       if (status === "completed" && result.video_url) {
-        const { searchParams } = url;
-        const storyId = searchParams.get("story_id");
+        const storyId = url.searchParams.get("story_id") ?? bodyJson?.story_id;
         if (storyId) {
           await supabase.from("stories")
             .update({
@@ -97,7 +96,7 @@ serve(async (req) => {
     }
 
     // SUBMIT
-    const body: SubmitBody = await req.json();
+    const body: SubmitBody = bodyJson ?? (await req.json());
     if (!body?.storyId || typeof body.storyId !== "string") {
       return new Response(JSON.stringify({ error: "storyId required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
