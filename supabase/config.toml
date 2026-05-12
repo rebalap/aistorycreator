@@ -14,3 +14,12 @@ verify_jwt = false
 
 [functions.translate-story-text]
 verify_jwt = false
+
+[functions.heygen-list-voices]
+verify_jwt = false
+
+[functions.heygen-list-avatars]
+verify_jwt = false
+
+[functions.heygen-generate-video]
+verify_jwt = false
