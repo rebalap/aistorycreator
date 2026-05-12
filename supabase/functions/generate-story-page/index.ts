@@ -64,15 +64,25 @@ serve(async (req) => {
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+      console.error("LOVABLE_API_KEY is not configured");
+      return new Response(
+        JSON.stringify({ error: "Service unavailable. Please try again later." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    if (!characterImage) {
-      throw new Error("Character image is required");
+    // Input validation
+    if (!characterImage || typeof characterImage !== "string" || characterImage.length > 10_000_000) {
+      return new Response(JSON.stringify({ error: "Invalid character image" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-
-    if (!storyText) {
-      throw new Error("Story text is required");
+    if (!storyText || typeof storyText !== "string" || storyText.trim().length === 0 || storyText.length > 2000) {
+      return new Response(JSON.stringify({ error: "Story text is required (max 2000 characters)" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (backgroundImages && (!Array.isArray(backgroundImages) || backgroundImages.length > 10)) {
+      return new Response(JSON.stringify({ error: "Invalid background images" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (previousImages && (!Array.isArray(previousImages) || previousImages.length > 5)) {
+      return new Response(JSON.stringify({ error: "Invalid previous images" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     console.log(`Generating story page ${pageNumber || 1} with text:`, storyText.substring(0, 100) + "...");
@@ -206,7 +216,7 @@ ADDITIONAL REQUIREMENTS:
         );
       }
 
-      throw new Error(`AI gateway error: ${response.status}`);
+      return new Response(JSON.stringify({ error: "Image generation failed. Please try again." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const data = await response.json();
@@ -231,11 +241,8 @@ ADDITIONAL REQUIREMENTS:
   } catch (error) {
     console.error("Error in generate-story-page:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error occurred" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: "Image generation failed. Please try again." }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

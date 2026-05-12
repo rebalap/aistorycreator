@@ -63,15 +63,18 @@ serve(async (req) => {
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+      console.error("LOVABLE_API_KEY is not configured");
+      return new Response(JSON.stringify({ error: "Service unavailable. Please try again later." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    if (!currentImage) {
-      throw new Error("Current image is required");
+    if (!currentImage || typeof currentImage !== "string" || currentImage.length > 10_000_000) {
+      return new Response(JSON.stringify({ error: "Invalid current image" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-
-    if (!editPrompt) {
-      throw new Error("Edit prompt is required");
+    if (!editPrompt || typeof editPrompt !== "string" || editPrompt.trim().length === 0 || editPrompt.length > 1000) {
+      return new Response(JSON.stringify({ error: "Edit prompt is required (max 1000 characters)" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (referenceImages && (!Array.isArray(referenceImages) || referenceImages.length > 5)) {
+      return new Response(JSON.stringify({ error: "Invalid reference images" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     console.log("Editing story image with prompt:", editPrompt);
@@ -186,7 +189,7 @@ IMPORTANT:
         );
       }
 
-      throw new Error(`AI gateway error: ${response.status}`);
+      return new Response(JSON.stringify({ error: "Image editing failed. Please try again." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const data = await response.json();
@@ -206,7 +209,7 @@ IMPORTANT:
   } catch (error) {
     console.error("Error in edit-story-image:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error occurred" }),
+      JSON.stringify({ error: "Image editing failed. Please try again." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
