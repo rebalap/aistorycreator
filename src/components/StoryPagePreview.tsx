@@ -236,7 +236,7 @@ export function StoryPagePreview({
                     onChange={(e) => setEditedText(e.target.value)}
                     className="flex-1 font-bold text-base resize-none"
                     dir={language === 'ar' ? 'rtl' : 'ltr'}
-                    style={{ fontFamily: language === 'ar' ? "'Noto Naskh Arabic', 'Tahoma', sans-serif" : "'Comic Sans MS', 'Comic Sans', cursive" }}
+                    style={{ fontFamily: language === 'ar' ? "'Noto Naskh Arabic', 'Tahoma', sans-serif" : language === 'te' ? "'Noto Sans Telugu', sans-serif" : "'Comic Sans MS', 'Comic Sans', cursive" }}
                     autoFocus
                   />
                   <div className="flex gap-2 justify-end">
@@ -254,7 +254,7 @@ export function StoryPagePreview({
                 <>
                   <p 
                     className={cn("text-sm md:text-lg lg:text-xl font-bold text-foreground leading-relaxed", language === 'ar' ? 'text-right' : 'text-center')}
-                    style={{ fontFamily: language === 'ar' ? "'Noto Naskh Arabic', 'Tahoma', sans-serif" : "'Comic Sans MS', 'Comic Sans', cursive" }}
+                    style={{ fontFamily: language === 'ar' ? "'Noto Naskh Arabic', 'Tahoma', sans-serif" : language === 'te' ? "'Noto Sans Telugu', sans-serif" : "'Comic Sans MS', 'Comic Sans', cursive" }}
                   >
                     {text || "Your story text will appear here..."}
                   </p>
