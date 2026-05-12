@@ -45,10 +45,15 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const action = url.searchParams.get("action") ?? "submit";
+    // Accept action/video_id/story_id from query string OR JSON body (invoke() strips query strings).
+    let bodyJson: any = null;
+    if (req.method !== "GET") {
+      try { bodyJson = await req.clone().json(); } catch { bodyJson = null; }
+    }
+    const action = url.searchParams.get("action") ?? bodyJson?.action ?? "submit";
 
     if (action === "status") {
-      const videoId = url.searchParams.get("video_id");
+      const videoId = url.searchParams.get("video_id") ?? bodyJson?.video_id;
       if (!videoId) {
         return new Response(JSON.stringify({ error: "video_id required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -71,8 +76,7 @@ serve(async (req) => {
 
       // Persist when completed
       if (status === "completed" && result.video_url) {
-        const { searchParams } = url;
-        const storyId = searchParams.get("story_id");
+        const storyId = url.searchParams.get("story_id") ?? bodyJson?.story_id;
         if (storyId) {
           await supabase.from("stories")
             .update({
@@ -92,7 +96,7 @@ serve(async (req) => {
     }
 
     // SUBMIT
-    const body: SubmitBody = await req.json();
+    const body: SubmitBody = bodyJson ?? (await req.json());
     if (!body?.storyId || typeof body.storyId !== "string") {
       return new Response(JSON.stringify({ error: "storyId required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -173,14 +177,27 @@ serve(async (req) => {
       title: (story.title || "Story video").slice(0, 150),
     };
 
-    const res = await fetch("https://api.heygen.com/v2/video/generate", {
-      method: "POST",
-      headers: {
-        "X-Api-Key": HEYGEN_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
+    const ctrl = new AbortController();
+    const timeoutId = setTimeout(() => ctrl.abort(), 60_000);
+    let res: Response;
+    try {
+      res = await fetch("https://api.heygen.com/v2/video/generate", {
+        method: "POST",
+        headers: {
+          "X-Api-Key": HEYGEN_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        signal: ctrl.signal,
+      });
+    } catch (e) {
+      clearTimeout(timeoutId);
+      console.error("HeyGen submit fetch failed/timed out", e);
+      return new Response(JSON.stringify({ error: "HeyGen submission timed out. Try fewer pages or smaller images." }), {
+        status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    clearTimeout(timeoutId);
     const json = await res.json();
     if (!res.ok || !json?.data?.video_id) {
       console.error("HeyGen submit error", res.status, json);
