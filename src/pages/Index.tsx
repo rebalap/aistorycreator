@@ -203,6 +203,7 @@ const Index = () => {
       setBackgroundImages(story.background_image_urls || []);
       setCoverImage(story.cover_image_url || null);
       setCoverTitle(story.title);
+      setStoryVideoUrl((story as any).video_url || null);
       const lang = (story as any).language;
       setLanguage(lang === 'ar' || lang === 'te' ? lang : 'en');
       
@@ -1313,6 +1314,25 @@ const Index = () => {
         defaultTitle={storyTitle}
         isSaving={isSaving}
       />
+
+      <GenerateVideoDialog
+        open={showVideoDialog}
+        onOpenChange={setShowVideoDialog}
+        storyId={currentStoryId}
+        hasCover={!!coverImage}
+        onCompleted={(url) => setStoryVideoUrl(url)}
+      />
+
+      {storyVideoUrl && (
+        <div className="fixed bottom-4 right-4 z-40 w-80 bg-card border rounded-lg shadow-xl p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium flex items-center gap-1"><Video className="w-4 h-4" /> Book video</span>
+            <button onClick={() => setStoryVideoUrl(null)} className="text-xs text-muted-foreground hover:text-foreground">close</button>
+          </div>
+          <video src={storyVideoUrl} controls className="w-full rounded" />
+          <a href={storyVideoUrl} target="_blank" rel="noreferrer" className="text-xs text-primary underline">Open on HeyGen</a>
+        </div>
+      )}
 
     </main>
   );
