@@ -7,8 +7,8 @@ interface MetadataBarProps {
   onCharacterImagesChange: (images: string[]) => void;
   backgroundImages: string[];
   onBackgroundImagesChange: (images: string[]) => void;
-  language: "en" | "ar";
-  onLanguageChange: (language: "en" | "ar") => void;
+  language: "en" | "ar" | "te";
+  onLanguageChange: (language: "en" | "ar" | "te") => void;
 }
 
 export function MetadataBar({
@@ -49,7 +49,7 @@ export function MetadataBar({
             type="single"
             value={language}
             onValueChange={(value) => {
-              if (value) onLanguageChange(value as "en" | "ar");
+              if (value) onLanguageChange(value as "en" | "ar" | "te");
             }}
             className="justify-start"
           >
@@ -58,6 +58,9 @@ export function MetadataBar({
             </ToggleGroupItem>
             <ToggleGroupItem value="ar" aria-label="Arabic" className="px-4">
               عربي
+            </ToggleGroupItem>
+            <ToggleGroupItem value="te" aria-label="Telugu" className="px-4">
+              తెలుగు
             </ToggleGroupItem>
           </ToggleGroup>
         </div>

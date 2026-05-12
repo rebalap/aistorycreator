@@ -11,7 +11,7 @@ interface StoryPagePreviewProps {
   text: string;
   isLoading?: boolean;
   isEditingImage?: boolean;
-  language?: "en" | "ar";
+  language?: "en" | "ar" | "te";
   className?: string;
   onEditImage?: (prompt: string) => void;
   onAcceptImage?: () => void;
