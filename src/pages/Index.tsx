@@ -95,26 +95,47 @@ const Index = () => {
     }));
   }, [currentPageIndex, language]);
 
-  const handleLanguageChange = async (newLang: 'en' | 'ar' | 'te') => {
+  const handleLanguageChange = async (newLang: Lang) => {
     if (newLang === language) return;
 
-    // Collect all non-empty texts: title first, then page texts
-    const textsToTranslate: string[] = [];
-    const hasTitle = storyTitle.trim() && storyTitle !== "Untitled Story";
-    if (hasTitle) textsToTranslate.push(storyTitle);
-    
-    const pageTexts = pages.map(p => p.text.trim());
-    const nonEmptyPageIndices: number[] = [];
-    pageTexts.forEach((t, i) => {
-      if (t) {
-        textsToTranslate.push(t);
-        nonEmptyPageIndices.push(i);
-      }
+    // Snapshot whatever is currently displayed into the cache for the OUTGOING language,
+    // so an unsaved manual edit doesn't get lost when we switch.
+    const currentTitleSnapshot = storyTitle;
+    const titleCacheWithSnapshot: typeof titleTranslations = { ...titleTranslations, [language]: currentTitleSnapshot };
+    const pagesWithSnapshot = pages.map((p) => ({
+      ...p,
+      translations: { ...(p.translations || {}), [language]: p.text },
+    }));
+
+    // Decide what we still need to translate (cache miss + non-empty source).
+    const titleNeedsTranslation = !titleCacheWithSnapshot[newLang]
+      && currentTitleSnapshot.trim()
+      && currentTitleSnapshot !== "Untitled Story";
+
+    const pageMissIndices: number[] = [];
+    pagesWithSnapshot.forEach((p, i) => {
+      const cached = p.translations?.[newLang];
+      if (!cached && p.text.trim()) pageMissIndices.push(i);
     });
 
-    // If nothing to translate, just switch language
-    if (textsToTranslate.length === 0) {
+    const textsToTranslate: string[] = [];
+    if (titleNeedsTranslation) textsToTranslate.push(currentTitleSnapshot);
+    pageMissIndices.forEach((i) => textsToTranslate.push(pagesWithSnapshot[i].text));
+
+    const applyFromCache = (titleCache: typeof titleTranslations, pgs: typeof pagesWithSnapshot) => {
+      const newTitle = titleCache[newLang] || (titleNeedsTranslation ? currentTitleSnapshot : (currentTitleSnapshot || ""));
+      setStoryTitle(newTitle);
+      setCoverTitle(newTitle);
+      setTitleTranslations(titleCache);
+      setPages(pgs.map((p) => ({
+        ...p,
+        text: p.translations?.[newLang] || (p.text.trim() ? p.text : ""),
+      })));
       setLanguage(newLang);
+    };
+
+    if (textsToTranslate.length === 0) {
+      applyFromCache(titleCacheWithSnapshot, pagesWithSnapshot);
       return;
     }
 
@@ -134,23 +155,21 @@ const Index = () => {
       const translated: string[] = data.translatedTexts;
       let idx = 0;
 
-      // Apply title
-      if (hasTitle) {
-        setStoryTitle(translated[idx]);
-        setCoverTitle(translated[idx]);
-        idx++;
+      const nextTitleCache = { ...titleCacheWithSnapshot };
+      if (titleNeedsTranslation) {
+        nextTitleCache[newLang] = translated[idx++];
       }
 
-      // Apply page texts
-      setPages(prev => prev.map((page, i) => {
-        const posInNonEmpty = nonEmptyPageIndices.indexOf(i);
-        if (posInNonEmpty !== -1) {
-          return { ...page, text: translated[idx + posInNonEmpty] };
+      const nextPages = pagesWithSnapshot.map((p, i) => {
+        const missPos = pageMissIndices.indexOf(i);
+        if (missPos !== -1) {
+          const t = translated[idx + missPos];
+          return { ...p, translations: { ...(p.translations || {}), [newLang]: t } };
         }
-        return page;
-      }));
+        return p;
+      });
 
-      setLanguage(newLang);
+      applyFromCache(nextTitleCache, nextPages);
       toast.success(`Translated to ${langName(newLang)}`, { id: toastId });
     } catch (err: any) {
       console.error('Batch translation error:', err);
