@@ -192,6 +192,7 @@ const Index = () => {
     setTitleColor(draft.titleColor);
     setTitleFontSize(draft.titleFontSize);
     if (draft.language) setLanguage(draft.language);
+    if (draft.titleTranslations) setTitleTranslations(draft.titleTranslations);
     if (draft.currentStoryId) {
       setCurrentStoryId(draft.currentStoryId);
     }
@@ -215,6 +216,7 @@ const Index = () => {
     titleColor,
     titleFontSize,
     language,
+    titleTranslations,
     currentStoryId,
     user,
     onRestoreDraft: handleRestoreDraft,
