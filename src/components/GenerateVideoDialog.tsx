@@ -67,15 +67,18 @@ export const GenerateVideoDialog = ({
 
   useEffect(() => {
     if (!open) return;
-    // Steer the voice list toward the app's selected language
-    const langGuess = language === 'ar' ? 'Arabic' : language === 'te' ? 'Telugu' : 'English';
-    setVoiceLang(langGuess);
     let cancelled = false;
     setLoadingLists(true);
     supabase.functions.invoke("heygen-list-voices").then((v) => {
       if (cancelled) return;
-      if (v.error) toast.error("Failed to load voices");
-      else setVoices((v.data as any)?.voices ?? []);
+      if (v.error) { toast.error("Failed to load voices"); return; }
+      const list: Voice[] = (v.data as any)?.voices ?? [];
+      setVoices(list);
+      // Steer voice filter to app language if a matching language exists
+      const target = language === 'ar' ? 'arabic' : language === 'te' ? 'telugu' : 'english';
+      const match = Array.from(new Set(list.map((x) => x.language).filter(Boolean)))
+        .find((l) => l.toLowerCase().includes(target));
+      if (match) setVoiceLang(match);
     }).finally(() => !cancelled && setLoadingLists(false));
     return () => { cancelled = true; };
   }, [open, language]);
