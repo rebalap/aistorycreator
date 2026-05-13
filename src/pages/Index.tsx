@@ -27,7 +27,11 @@ const createEmptyPage = (pageNumber: number): StoryPage => ({
   text: "",
   image: null,
   pendingImage: null,
+  translations: {},
 });
+
+type Lang = 'en' | 'ar' | 'te';
+const ALL_LANGS: Lang[] = ['en', 'ar', 'te'];
 
 const Index = () => {
   const navigate = useNavigate();
