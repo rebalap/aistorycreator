@@ -85,8 +85,7 @@ serve(async (req) => {
               heygen_video_id: videoId,
               video_generated_at: new Date().toISOString(),
             })
-            .eq("id", storyId)
-            .eq("user_id", user.id);
+            .eq("id", storyId);
         }
       }
 
