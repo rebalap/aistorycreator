@@ -1320,6 +1320,12 @@ const Index = () => {
         onOpenChange={setShowVideoDialog}
         storyId={currentStoryId}
         hasCover={!!coverImage}
+        renderPageFrame={async (pageNumber) => {
+          const p = pages.find((pp) => pp.pageNumber === pageNumber);
+          return p ? renderPageToBlob(p) : null;
+        }}
+        renderCoverFrame={renderCoverToBlob}
+        pageNumbers={pages.filter((p) => p.image && p.text?.trim()).map((p) => p.pageNumber)}
         onCompleted={(url) => setStoryVideoUrl(url)}
       />
 
