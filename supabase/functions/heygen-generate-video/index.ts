@@ -172,7 +172,7 @@ serve(async (req) => {
         avatar_id: PLACEHOLDER_AVATAR_ID,
         avatar_style: "normal",
         scale: 0.001,
-        offset: { x: 1.5, y: 1.5 },
+        offset: { x: 1, y: 1 },
       },
       voice: {
         type: "text",
