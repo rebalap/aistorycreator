@@ -17,30 +17,34 @@ interface Voice {
   gender?: string;
   preview_audio?: string;
 }
-interface Avatar {
-  avatar_id: string;
-  avatar_name: string;
-  gender?: string;
-  preview_image_url?: string;
-}
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   storyId: string | null;
   hasCover: boolean;
+  pageNumbers: number[];
+  renderPageFrame: (pageNumber: number) => Promise<Blob | null>;
+  renderCoverFrame: () => Promise<Blob | null>;
   onCompleted?: (videoUrl: string, thumbnailUrl: string | null) => void;
 }
 
-export const GenerateVideoDialog = ({ open, onOpenChange, storyId, hasCover, onCompleted }: Props) => {
+export const GenerateVideoDialog = ({
+  open,
+  onOpenChange,
+  storyId,
+  hasCover,
+  pageNumbers,
+  renderPageFrame,
+  renderCoverFrame,
+  onCompleted,
+}: Props) => {
   const [voices, setVoices] = useState<Voice[]>([]);
-  const [avatars, setAvatars] = useState<Avatar[]>([]);
   const [loadingLists, setLoadingLists] = useState(false);
 
   const [voiceFilter, setVoiceFilter] = useState("");
   const [voiceLang, setVoiceLang] = useState<string>("all");
   const [voiceId, setVoiceId] = useState<string>("");
-  const [avatarId, setAvatarId] = useState<string>("");
 
   const [speed, setSpeed] = useState(1);
   const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
@@ -59,15 +63,10 @@ export const GenerateVideoDialog = ({ open, onOpenChange, storyId, hasCover, onC
     if (!open) return;
     let cancelled = false;
     setLoadingLists(true);
-    Promise.all([
-      supabase.functions.invoke("heygen-list-voices"),
-      supabase.functions.invoke("heygen-list-avatars"),
-    ]).then(([v, a]) => {
+    supabase.functions.invoke("heygen-list-voices").then((v) => {
       if (cancelled) return;
       if (v.error) toast.error("Failed to load voices");
       else setVoices((v.data as any)?.voices ?? []);
-      if (a.error) toast.error("Failed to load avatars");
-      else setAvatars((a.data as any)?.avatars ?? []);
     }).finally(() => !cancelled && setLoadingLists(false));
     return () => { cancelled = true; };
   }, [open]);
@@ -137,19 +136,81 @@ export const GenerateVideoDialog = ({ open, onOpenChange, storyId, hasCover, onC
     toast.error("Timed out waiting for video. Check HeyGen later.");
   };
 
+  const uploadFrame = async (path: string, blob: Blob): Promise<string> => {
+    const { error: upErr } = await supabase.storage
+      .from("story-images")
+      .upload(path, blob, { upsert: true, contentType: "image/png" });
+    if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+    const { data } = supabase.storage.from("story-images").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const prepareFrames = async (): Promise<{ framesByPage: Record<string, string>; coverFrameUrl?: string }> => {
+    const ts = Date.now();
+    const framesByPage: Record<string, string> = {};
+    let coverFrameUrl: string | undefined;
+
+    const tasks: Array<() => Promise<void>> = [];
+
+    if (includeCover && hasCover) {
+      tasks.push(async () => {
+        const blob = await renderCoverFrame();
+        if (!blob) throw new Error("Failed to render cover frame");
+        coverFrameUrl = await uploadFrame(`video-frames/${storyId}/cover-${ts}.png`, blob);
+      });
+    }
+    for (const pageNumber of pageNumbers) {
+      tasks.push(async () => {
+        const blob = await renderPageFrame(pageNumber);
+        if (!blob) throw new Error(`Failed to render page ${pageNumber}`);
+        const url = await uploadFrame(`video-frames/${storyId}/page-${pageNumber}-${ts}.png`, blob);
+        framesByPage[String(pageNumber)] = url;
+      });
+    }
+
+    // Run with concurrency cap of 4
+    let done = 0;
+    const total = tasks.length;
+    const queue = [...tasks];
+    const workers = Array.from({ length: Math.min(4, queue.length) }, async () => {
+      while (queue.length) {
+        const t = queue.shift();
+        if (!t) break;
+        await t();
+        done++;
+        setStatusMsg(`Preparing pages… (${done}/${total})`);
+      }
+    });
+    await Promise.all(workers);
+
+    return { framesByPage, coverFrameUrl };
+  };
+
   const handleGenerate = async () => {
     if (!storyId) { toast.error("Save the story first"); return; }
     if (!voiceId) { toast.error("Pick a voice"); return; }
-    if (!avatarId) { toast.error("Pick an avatar"); return; }
+    if (pageNumbers.length === 0) { toast.error("No narratable pages"); return; }
     stopPreview();
     setSubmitting(true);
     try {
+      setStatusMsg("Preparing pages…");
+      const { framesByPage, coverFrameUrl } = await prepareFrames();
+      setStatusMsg("Submitting to HeyGen…");
       const { data, error } = await supabase.functions.invoke("heygen-generate-video", {
-        body: { storyId, voiceId, avatarId, speed, aspectRatio, transition, styleTemplate, includeCover },
+        body: {
+          storyId,
+          voiceId,
+          speed,
+          aspectRatio,
+          transition,
+          styleTemplate,
+          includeCover,
+          framesByPage,
+          coverFrameUrl,
+        },
       });
       console.log("heygen-generate-video response", { data, error });
       if (error) {
-        // Supabase wraps non-2xx; data may still contain the parsed JSON body
         const d: any = data ?? {};
         const detail = d.error || d.heygen_body || error.message;
         const status = d.heygen_status ? ` (HeyGen ${d.heygen_status})` : "";
@@ -161,6 +222,7 @@ export const GenerateVideoDialog = ({ open, onOpenChange, storyId, hasCover, onC
     } catch (e: any) {
       console.error("Generate video failed", e);
       toast.error(e?.message || "Failed to start video", { duration: 12000 });
+      setStatusMsg("");
     } finally {
       setSubmitting(false);
     }
@@ -174,7 +236,7 @@ export const GenerateVideoDialog = ({ open, onOpenChange, storyId, hasCover, onC
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Video className="w-5 h-5" /> Generate Book Video</DialogTitle>
           <DialogDescription>
-            HeyGen will narrate each page over its illustration. The resulting video URL is saved on this story.
+            HeyGen narrates each downloadable page (image + text together). No avatar is shown in the video.
           </DialogDescription>
         </DialogHeader>
 
@@ -209,19 +271,6 @@ export const GenerateVideoDialog = ({ open, onOpenChange, storyId, hasCover, onC
                   </div>
                 ))}
                 {filteredVoices.length === 0 && <div className="p-4 text-sm text-muted-foreground">No voices match.</div>}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Avatar (small corner narrator)</Label>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-56 overflow-y-auto p-1">
-                {avatars.slice(0, 24).map((a) => (
-                  <button key={a.avatar_id} onClick={() => setAvatarId(a.avatar_id)}
-                    className={`border rounded-md overflow-hidden text-left transition ${avatarId === a.avatar_id ? "ring-2 ring-primary" : "hover:border-foreground/30"}`}>
-                    {a.preview_image_url ? <img src={a.preview_image_url} alt={a.avatar_name} className="w-full h-20 object-cover" /> : <div className="h-20 bg-muted" />}
-                    <div className="p-1 text-[11px] truncate">{a.avatar_name}</div>
-                  </button>
-                ))}
               </div>
             </div>
 
@@ -281,7 +330,7 @@ export const GenerateVideoDialog = ({ open, onOpenChange, storyId, hasCover, onC
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
-          <Button onClick={handleGenerate} disabled={busy || loadingLists || !voiceId || !avatarId}>
+          <Button onClick={handleGenerate} disabled={busy || loadingLists || !voiceId}>
             {busy ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating…</> : <><Video className="w-4 h-4 mr-2" /> Generate</>}
           </Button>
         </DialogFooter>
