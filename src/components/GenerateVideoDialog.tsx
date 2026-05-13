@@ -24,6 +24,9 @@ interface Props {
   storyId: string | null;
   hasCover: boolean;
   pageNumbers: number[];
+  pageTexts: Record<number, string>;
+  coverTitle: string;
+  language: 'en' | 'ar' | 'te';
   renderPageFrame: (pageNumber: number) => Promise<Blob | null>;
   renderCoverFrame: () => Promise<Blob | null>;
   onCompleted?: (videoUrl: string, thumbnailUrl: string | null) => void;
@@ -35,6 +38,9 @@ export const GenerateVideoDialog = ({
   storyId,
   hasCover,
   pageNumbers,
+  pageTexts,
+  coverTitle,
+  language,
   renderPageFrame,
   renderCoverFrame,
   onCompleted,
