@@ -1326,6 +1326,9 @@ const Index = () => {
         }}
         renderCoverFrame={renderCoverToBlob}
         pageNumbers={pages.filter((p) => p.image && p.text?.trim()).map((p) => p.pageNumber)}
+        pageTexts={Object.fromEntries(pages.map((p) => [p.pageNumber, p.text]))}
+        coverTitle={coverTitle || storyTitle}
+        language={language}
         onCompleted={(url) => setStoryVideoUrl(url)}
       />
 

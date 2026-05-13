@@ -24,6 +24,9 @@ interface Props {
   storyId: string | null;
   hasCover: boolean;
   pageNumbers: number[];
+  pageTexts: Record<number, string>;
+  coverTitle: string;
+  language: 'en' | 'ar' | 'te';
   renderPageFrame: (pageNumber: number) => Promise<Blob | null>;
   renderCoverFrame: () => Promise<Blob | null>;
   onCompleted?: (videoUrl: string, thumbnailUrl: string | null) => void;
@@ -35,6 +38,9 @@ export const GenerateVideoDialog = ({
   storyId,
   hasCover,
   pageNumbers,
+  pageTexts,
+  coverTitle,
+  language,
   renderPageFrame,
   renderCoverFrame,
   onCompleted,
@@ -65,11 +71,17 @@ export const GenerateVideoDialog = ({
     setLoadingLists(true);
     supabase.functions.invoke("heygen-list-voices").then((v) => {
       if (cancelled) return;
-      if (v.error) toast.error("Failed to load voices");
-      else setVoices((v.data as any)?.voices ?? []);
+      if (v.error) { toast.error("Failed to load voices"); return; }
+      const list: Voice[] = (v.data as any)?.voices ?? [];
+      setVoices(list);
+      // Steer voice filter to app language if a matching language exists
+      const target = language === 'ar' ? 'arabic' : language === 'te' ? 'telugu' : 'english';
+      const match = Array.from(new Set(list.map((x) => x.language).filter(Boolean)))
+        .find((l) => l.toLowerCase().includes(target));
+      if (match) setVoiceLang(match);
     }).finally(() => !cancelled && setLoadingLists(false));
     return () => { cancelled = true; };
-  }, [open]);
+  }, [open, language]);
 
   const languages = useMemo(() => {
     const s = new Set<string>();
@@ -207,6 +219,11 @@ export const GenerateVideoDialog = ({
           includeCover,
           framesByPage,
           coverFrameUrl,
+          pageTexts: Object.fromEntries(
+            Object.entries(pageTexts).map(([k, v]) => [String(k), v])
+          ),
+          coverTitle,
+          language,
         },
       });
       console.log("heygen-generate-video response", { data, error });
