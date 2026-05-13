@@ -12,12 +12,13 @@ const MAX_SCENES = 20;
 interface SubmitBody {
   storyId: string;
   voiceId: string;
-  avatarId: string;
   speed?: number;
   aspectRatio?: "16:9" | "9:16" | "1:1";
   transition?: "cut" | "fade" | "slide";
   styleTemplate?: "classic" | "playful" | "cinematic";
   includeCover?: boolean;
+  framesByPage?: Record<string, string>;
+  coverFrameUrl?: string;
 }
 
 serve(async (req) => {
