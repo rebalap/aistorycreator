@@ -1338,7 +1338,7 @@ const Index = () => {
                 onEdit={handleEditCover}
                 onAccept={handleAcceptCover}
                 onDiscard={handleDiscardCover}
-                onTitleChange={setCoverTitle}
+                onTitleChange={editTitle}
                 titlePosition={titlePosition}
                 titleFontStyle={titleFontStyle}
                 titleColor={titleColor}
