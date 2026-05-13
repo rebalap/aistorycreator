@@ -25,17 +25,18 @@ const Shelf = () => {
 
   useEffect(() => {
     const fetchPageCounts = async () => {
-      const allStories = [...stories, ...communityStories];
-      if (allStories.length === 0) return;
-      
+      const allIds = [...stories, ...communityStories].map(s => s.id);
+      if (allIds.length === 0) return;
+
+      const { data } = await supabase
+        .from("story_pages")
+        .select("story_id")
+        .in("story_id", allIds);
+
       const counts: Record<string, number> = {};
-      for (const story of allStories) {
-        const { data } = await supabase
-          .from("story_pages")
-          .select("id", { count: "exact" })
-          .eq("story_id", story.id);
-        counts[story.id] = data?.length || 0;
-      }
+      (data || []).forEach((row: any) => {
+        counts[row.story_id] = (counts[row.story_id] || 0) + 1;
+      });
       setPageCounts(counts);
     };
     

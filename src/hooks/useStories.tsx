@@ -53,7 +53,8 @@ export const useStories = () => {
           .from("stories")
           .select("*")
           .neq("user_id", user.id)
-          .order("updated_at", { ascending: false }),
+          .order("updated_at", { ascending: false })
+          .limit(100),
         supabase
           .from("profiles")
           .select("id, email"),
