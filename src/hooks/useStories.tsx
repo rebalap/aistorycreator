@@ -9,6 +9,9 @@ export interface StoryPage {
   page_number: number;
   text: string;
   image_url: string | null;
+  text_en?: string | null;
+  text_ar?: string | null;
+  text_te?: string | null;
 }
 
 export interface Story {
@@ -19,6 +22,9 @@ export interface Story {
   character_image_url: string | null;
   language?: string;
   background_image_urls: string[] | null;
+  title_en?: string | null;
+  title_ar?: string | null;
+  title_te?: string | null;
   created_at: string;
   updated_at: string;
   pages?: StoryPage[];
