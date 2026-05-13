@@ -19,6 +19,9 @@ interface SubmitBody {
   includeCover?: boolean;
   framesByPage?: Record<string, string>;
   coverFrameUrl?: string;
+  pageTexts?: Record<string, string>;
+  coverTitle?: string;
+  language?: string;
 }
 
 serve(async (req) => {
