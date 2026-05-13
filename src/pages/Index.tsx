@@ -1018,7 +1018,7 @@ const Index = () => {
             <div className="flex-1">
               <Input
                 value={storyTitle}
-                onChange={(e) => setStoryTitle(e.target.value)}
+                onChange={(e) => editTitle(e.target.value)}
                 className="text-lg font-bold border-none bg-transparent p-0 h-auto focus-visible:ring-0"
                 placeholder="Story Title"
               />
