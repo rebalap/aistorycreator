@@ -102,8 +102,8 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (!body.voiceId || !body.avatarId) {
-      return new Response(JSON.stringify({ error: "voiceId and avatarId required" }), {
+    if (!body.voiceId) {
+      return new Response(JSON.stringify({ error: "voiceId required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -142,20 +142,31 @@ serve(async (req) => {
       });
     }
 
-    const scenes: any[] = [];
-    if (body.includeCover && story.cover_image_url) {
-      scenes.push({ text: story.title || "", image: story.cover_image_url });
+    const framesByPage = body.framesByPage ?? {};
+    const scenes: { text: string; image: string }[] = [];
+    if (body.includeCover && (body.coverFrameUrl || story.cover_image_url)) {
+      scenes.push({
+        text: story.title || "",
+        image: body.coverFrameUrl || story.cover_image_url!,
+      });
     }
-    for (const p of usable) scenes.push({ text: p.text, image: p.image_url });
+    for (const p of usable) {
+      const frame = framesByPage[String(p.page_number)] || p.image_url;
+      scenes.push({ text: p.text, image: frame });
+    }
     if (scenes.length > MAX_SCENES) scenes.length = MAX_SCENES;
 
+    // Avatar removed: HeyGen v2 requires a character, so we render a tiny
+    // off-canvas placeholder using a built-in avatar so the resulting video
+    // shows only background + narration.
+    const PLACEHOLDER_AVATAR_ID = "Daisy-inskirt-20220818";
     const video_inputs = scenes.map((s) => ({
       character: {
         type: "avatar",
-        avatar_id: body.avatarId,
+        avatar_id: PLACEHOLDER_AVATAR_ID,
         avatar_style: "normal",
-        scale: 0.35,
-        offset: { x: 0.35, y: 0.35 },
+        scale: 0.001,
+        offset: { x: 1.5, y: 1.5 },
       },
       voice: {
         type: "text",
