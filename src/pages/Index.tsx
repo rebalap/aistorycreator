@@ -1255,24 +1255,8 @@ const Index = () => {
                             className="absolute bottom-2 right-2"
                             disabled={isTranslating}
                             onClick={async () => {
-                              const nextLang: 'en' | 'ar' | 'te' = language === 'en' ? 'ar' : language === 'ar' ? 'te' : 'en';
-                              setIsTranslating(true);
-                              try {
-                                const { data, error } = await supabase.functions.invoke('translate-story-text', {
-                                  body: { text: currentPage.text, targetLanguage: nextLang },
-                                });
-                                if (error) throw error;
-                                if (data?.translatedText) {
-                                  handleTextChange(data.translatedText);
-                                  setLanguage(nextLang);
-                                  toast.success(`Translated to ${langName(nextLang)}`);
-                                }
-                              } catch (err: any) {
-                                console.error('Translation error:', err);
-                                toast.error(err.message || 'Translation failed');
-                              } finally {
-                                setIsTranslating(false);
-                              }
+                              const nextLang: Lang = language === 'en' ? 'ar' : language === 'ar' ? 'te' : 'en';
+                              await handleLanguageChange(nextLang);
                             }}
                           >
                             {isTranslating ? (
