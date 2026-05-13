@@ -25,31 +25,24 @@ export const useUsageStats = () => {
     }
 
     try {
-      // Get total generations for this user
-      const { count: totalGenerations, error: genError } = await supabase
-        .from("generation_logs")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id);
-
-      if (genError) throw genError;
-
-      // Get count of stories with generations
-      const { data: storiesData, error: storiesError } = await supabase
+      const { data, error } = await supabase
         .from("generation_logs")
         .select("story_id")
-        .eq("user_id", user.id)
-        .not("story_id", "is", null);
+        .eq("user_id", user.id);
 
-      if (storiesError) throw storiesError;
+      if (error) throw error;
 
-      const uniqueStories = new Set(storiesData?.map(d => d.story_id) || []);
+      const totalGenerations = data?.length || 0;
+      const uniqueStories = new Set(
+        (data || []).filter(d => d.story_id).map(d => d.story_id)
+      );
       const storiesWithGenerations = uniqueStories.size;
-      const avgPerStory = storiesWithGenerations > 0 
-        ? Math.round((totalGenerations || 0) / storiesWithGenerations) 
+      const avgPerStory = storiesWithGenerations > 0
+        ? Math.round(totalGenerations / storiesWithGenerations)
         : 0;
 
       setStats({
-        totalGenerations: totalGenerations || 0,
+        totalGenerations,
         storiesWithGenerations,
         avgPerStory,
         isLoading: false,
