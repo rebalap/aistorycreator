@@ -1,36 +1,46 @@
-## What I found
+## Problems
 
-- Edge function logs for `heygen-generate-video` only show boot lines — no `console.error` or `console.log` from any submit attempt was captured.
-- `generation_logs` for your user is empty, which means the submit never reached the insert step (it happens *after* a successful HeyGen response). So either:
-  1. HeyGen returned a non-OK response and we returned 502 without logging it visibly, **or**
-  2. The function aborted at our 60s `AbortController` timeout and returned 504, **or**
-  3. The browser's `supabase.functions.invoke` call itself timed out / dropped before the function replied.
-- The dialog "reset to original" matches the client `catch` branch firing — `toast.error(e.message)` would briefly appear and then submit/polling state both go false.
-- Separately, the console is flooded with Postgres `57014 statement timeout` errors on `/rest/v1/stories` — that's the community-shelf load, unrelated to video, but it confirms the backend is under load right now.
+1. HeyGen receives the raw Gemini image (left half only), not the full 1920×1080 page that `Download` produces (image left, text right on cream background).
+2. The avatar character appears in every scene; you have to delete it manually in HeyGen.
 
-## Plan — instrument and surface the actual cause
+## Plan
 
-Goal: next attempt produces a clear error message in the UI **and** persistent logs you can read.
+### 1. Send the full composited page to HeyGen
 
-### 1. `supabase/functions/heygen-generate-video/index.ts`
-- Add `console.log` at the top of the submit branch with: storyId, scene count, dimension, payload size in bytes.
-- Log right before and right after the HeyGen `fetch` with elapsed ms.
-- On the `AbortError` path, return a structured 504 with `{ error: "HeyGen submit timed out after 60s", elapsed_ms }`.
-- On non-OK responses, log full `res.status`, `res.headers.get("x-trace-id")` if present, and the raw body (already done — verify it surfaces).
-- Increase the internal AbortController timeout from 60s → 120s (HeyGen v2 generate can be slow when it has to fetch many large background images).
-- Add a `console.log("submit ok", { video_id })` before returning success.
+Reuse the same canvas composition that `handleDownload` already uses in `src/pages/Index.tsx` (lines ~590–691) — image on left, text on right.
 
-### 2. `src/components/GenerateVideoDialog.tsx`
-- In the `catch` of `handleGenerate`, also `console.error(e)` with the full error object so it lands in the browser console next time, and show the `heygen_status` / `heygen_body` from the function's JSON response in the toast (currently we only show `e.message` which truncates).
-- Make the toast `duration: 10000` so it doesn't disappear before you can read it.
+- Extract `renderPageToBlob` (and the cover equivalent) into a small shared helper `src/lib/renderStoryPage.ts` so both Download and the video flow use identical output.
+- In `GenerateVideoDialog.handleGenerate`, before invoking the edge function:
+  1. For each page (and cover if `includeCover`), render the composite blob on the client.
+  2. Upload each blob to the existing `story-images` bucket under `video-frames/{storyId}/{pageNumber}-{ts}.png` (public bucket, so HeyGen can fetch).
+  3. Build `framesByPage: { pageNumber: publicUrl }` and `coverFrameUrl`, send them in the invoke body.
+- In `supabase/functions/heygen-generate-video/index.ts`:
+  - Accept optional `framesByPage` and `coverFrameUrl` in the submit body.
+  - When present, use those URLs as the scene `background.url` instead of `story.cover_image_url` / `page.image_url`.
+  - Fall back to the raw image URL if a frame is missing (defensive).
 
-### 3. After deploying
-- You retry "Generate".
-- I'll re-pull edge function logs and the browser console to read the exact HeyGen failure (status code + body) and tell you whether it's:
-  - a quota/billing issue on HeyGen,
-  - an image-URL fetch failure on HeyGen's side (signed URL expired / not reachable),
-  - or a function/runtime timeout.
+Show a small `Preparing pages…` progress message in the dialog while uploading.
 
-### Out of scope for this plan
-- I'm **not** switching to the async-job pattern (DB row + background `EdgeRuntime.waitUntil` + client polling) yet — that's the real fix if the submit itself is what's timing out, but let's confirm the cause first with the logging above before doing that larger refactor.
-- I'm not touching the unrelated `stories` query timeout.
+### 2. Remove the avatar from the video
+
+HeyGen v2 `video/generate` requires a `character` in each `video_input`. To produce a video that visually has no avatar, switch the character to an audio-only mode by:
+
+- Replacing each scene's `character` with `{ type: "avatar", avatar_id, avatar_style: "normal", scale: 0.0001, offset: { x: -10, y: -10 } }` is unreliable.
+- Better: use HeyGen's documented audio-only path — set `video_inputs[].character` to a minimal placeholder and use `dimension` + `background` + `voice` only by omitting the avatar layer. Per HeyGen v2 docs the character object is required, but `scale: 0` with `offset` outside the frame is rejected.
+- Cleanest path that actually works: drop the avatar selector from the UI, and on the server build the payload with **no `character`** and add `"caption": false`. HeyGen accepts this when you pass a `voice` block that includes `voice_id` and `input_text`; the resulting render is background + narration only. If HeyGen rejects the payload, retry with a synthetic 1×1 transparent `talking_photo` placeholder positioned off-canvas (`scale: 0.001, offset: { x: 1, y: 1 }`) so it's invisible.
+
+UI changes:
+- Remove the entire "Avatar (small corner narrator)" picker and `avatarId` requirement from `GenerateVideoDialog.tsx`.
+- Remove `avatarId` from the request body.
+- The edge function no longer requires `avatarId`.
+
+### 3. Out of scope
+
+- Not changing storage bucket, RLS, or the polling / status flow.
+- Not changing the download composition itself — only sharing it.
+
+## Technical notes
+
+- Composited frames are 1920×1080 PNGs (~500KB–1.5MB each). At 20 max scenes that's ≤30MB upload — acceptable; uploads run in parallel with `Promise.all` and a concurrency cap of 4.
+- Frames are uploaded under a `video-frames/{storyId}/` prefix so they're easy to clean up later if needed.
+- The edge function's payload size is unaffected (URLs only, not blobs).
