@@ -146,16 +146,19 @@ serve(async (req) => {
     }
 
     const framesByPage = body.framesByPage ?? {};
+    const pageTexts = body.pageTexts ?? {};
+    const effectiveTitle = (body.coverTitle?.trim() || story.title || "").trim();
     const scenes: { text: string; image: string }[] = [];
     if (body.includeCover && (body.coverFrameUrl || story.cover_image_url)) {
       scenes.push({
-        text: story.title || "",
+        text: effectiveTitle,
         image: body.coverFrameUrl || story.cover_image_url!,
       });
     }
     for (const p of usable) {
       const frame = framesByPage[String(p.page_number)] || p.image_url;
-      scenes.push({ text: p.text, image: frame });
+      const text = pageTexts[String(p.page_number)]?.trim() || p.text;
+      scenes.push({ text, image: frame });
     }
     if (scenes.length > MAX_SCENES) scenes.length = MAX_SCENES;
 
@@ -184,7 +187,7 @@ serve(async (req) => {
       video_inputs,
       dimension,
       caption: false,
-      title: (story.title || "Story video").slice(0, 150),
+      title: (effectiveTitle || "Story video").slice(0, 150),
     };
 
     const payloadStr = JSON.stringify(payload);
@@ -192,8 +195,10 @@ serve(async (req) => {
       storyId: body.storyId,
       scenes: scenes.length,
       dimension,
+      language: body.language,
       payload_bytes: payloadStr.length,
       first_image: scenes[0]?.image?.slice(0, 120),
+      first_text_preview: scenes[0]?.text?.slice(0, 80),
     });
 
     const ctrl = new AbortController();
