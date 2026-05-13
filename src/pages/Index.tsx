@@ -66,12 +66,34 @@ const Index = () => {
   const [titleFontStyle, setTitleFontStyle] = useState<TitleFontStyle>('classic');
   const [titleColor, setTitleColor] = useState<string>('#FFFFFF');
    const [titleFontSize, setTitleFontSize] = useState<TitleFontSize>('medium');
-  const [language, setLanguage] = useState<'en' | 'ar' | 'te'>('en');
+  const [language, setLanguage] = useState<Lang>('en');
+  const [titleTranslations, setTitleTranslations] = useState<{ en?: string | null; ar?: string | null; te?: string | null }>({});
   const [isTranslating, setIsTranslating] = useState(false);
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [storyVideoUrl, setStoryVideoUrl] = useState<string | null>(null);
 
-  const langName = (l: 'en' | 'ar' | 'te') => l === 'ar' ? 'Arabic' : l === 'te' ? 'Telugu' : 'English';
+  const langName = (l: Lang) => l === 'ar' ? 'Arabic' : l === 'te' ? 'Telugu' : 'English';
+
+  /** Edit the story/cover title in the CURRENT language. Updates cache for current lang and clears other langs (now stale). */
+  const editTitle = useCallback((newTitle: string) => {
+    setStoryTitle(newTitle);
+    setCoverTitle(newTitle);
+    setTitleTranslations((prev) => {
+      const next: typeof prev = { ...prev, [language]: newTitle };
+      ALL_LANGS.forEach((l) => { if (l !== language) next[l] = null; });
+      return next;
+    });
+  }, [language]);
+
+  /** Edit the current page's text in the CURRENT language. Updates cache and clears other lang caches for this page. */
+  const editPageText = useCallback((newText: string) => {
+    setPages((prev) => prev.map((p, i) => {
+      if (i !== currentPageIndex) return p;
+      const nextTranslations = { ...(p.translations || {}), [language]: newText };
+      ALL_LANGS.forEach((l) => { if (l !== language) nextTranslations[l] = null; });
+      return { ...p, text: newText, translations: nextTranslations };
+    }));
+  }, [currentPageIndex, language]);
 
   const handleLanguageChange = async (newLang: 'en' | 'ar' | 'te') => {
     if (newLang === language) return;
