@@ -571,7 +571,7 @@ const Index = () => {
   };
 
   const handleTextChange = (newText: string) => {
-    updateCurrentPage({ text: newText });
+    editPageText(newText);
   };
 
   // Cover page handlers
