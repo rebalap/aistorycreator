@@ -85,8 +85,7 @@ serve(async (req) => {
               heygen_video_id: videoId,
               video_generated_at: new Date().toISOString(),
             })
-            .eq("id", storyId)
-            .eq("user_id", user.id);
+            .eq("id", storyId);
         }
       }
 
@@ -126,11 +125,7 @@ serve(async (req) => {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    if (story.user_id !== user.id) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Any authenticated user can generate a video for any story (community editing model)
 
     const { data: pages, error: pErr } = await supabase
       .from("story_pages")
