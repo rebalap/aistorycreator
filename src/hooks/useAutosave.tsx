@@ -58,6 +58,7 @@ export const useAutosave = ({
   titleColor,
   titleFontSize,
   language,
+  titleTranslations,
   currentStoryId,
   user,
   onRestoreDraft,
@@ -83,16 +84,17 @@ export const useAutosave = ({
     titleColor,
     titleFontSize,
     language,
+    titleTranslations,
     lastSaved: Date.now(),
     currentStoryId,
-  }), [storyTitle, characterImages, backgroundImages, pages, coverImage, coverTitle, titlePosition, titleFontStyle, titleColor, titleFontSize, language, currentStoryId]);
+  }), [storyTitle, characterImages, backgroundImages, pages, coverImage, coverTitle, titlePosition, titleFontStyle, titleColor, titleFontSize, language, titleTranslations, currentStoryId]);
 
   const getDraftHash = useCallback(() => {
     return JSON.stringify({
       storyTitle,
       characterImages,
       backgroundImages,
-      pages: pages.map(p => ({ text: p.text, image: p.image })),
+      pages: pages.map(p => ({ text: p.text, image: p.image, translations: p.translations })),
       coverImage,
       coverTitle,
       titlePosition,
@@ -100,8 +102,9 @@ export const useAutosave = ({
       titleColor,
       titleFontSize,
       language,
+      titleTranslations,
     });
-  }, [storyTitle, characterImages, backgroundImages, pages, coverImage, coverTitle, titlePosition, titleFontStyle, titleColor, titleFontSize, language]);
+  }, [storyTitle, characterImages, backgroundImages, pages, coverImage, coverTitle, titlePosition, titleFontStyle, titleColor, titleFontSize, language, titleTranslations]);
 
   // Save to localStorage
   const saveToLocal = useCallback(() => {
