@@ -219,6 +219,11 @@ export const GenerateVideoDialog = ({
           includeCover,
           framesByPage,
           coverFrameUrl,
+          pageTexts: Object.fromEntries(
+            Object.entries(pageTexts).map(([k, v]) => [String(k), v])
+          ),
+          coverTitle,
+          language,
         },
       });
       console.log("heygen-generate-video response", { data, error });
