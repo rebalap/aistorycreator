@@ -222,7 +222,17 @@ export const useStories = () => {
     }
   };
 
-  const saveStoryPages = async (storyId: string, pages: { page_number: number; text: string; image_url: string | null }[]) => {
+  const saveStoryPages = async (
+    storyId: string,
+    pages: {
+      page_number: number;
+      text: string;
+      image_url: string | null;
+      text_en?: string | null;
+      text_ar?: string | null;
+      text_te?: string | null;
+    }[]
+  ) => {
     try {
       // Delete existing pages
       await supabase.from("story_pages").delete().eq("story_id", storyId);
