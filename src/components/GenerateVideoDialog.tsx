@@ -162,20 +162,25 @@ export const GenerateVideoDialog = ({
     const framesByPage: Record<string, string> = {};
     let coverFrameUrl: string | undefined;
 
+    // Storage RLS on `story-images` requires the first path segment to be the user's id.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not signed in");
+    const basePath = `${user.id}/video-frames/${storyId}`;
+
     const tasks: Array<() => Promise<void>> = [];
 
     if (includeCover && hasCover) {
       tasks.push(async () => {
         const blob = await renderCoverFrame();
         if (!blob) throw new Error("Failed to render cover frame");
-        coverFrameUrl = await uploadFrame(`video-frames/${storyId}/cover-${ts}.png`, blob);
+        coverFrameUrl = await uploadFrame(`${basePath}/cover-${ts}.png`, blob);
       });
     }
     for (const pageNumber of pageNumbers) {
       tasks.push(async () => {
         const blob = await renderPageFrame(pageNumber);
         if (!blob) throw new Error(`Failed to render page ${pageNumber}`);
-        const url = await uploadFrame(`video-frames/${storyId}/page-${pageNumber}-${ts}.png`, blob);
+        const url = await uploadFrame(`${basePath}/page-${pageNumber}-${ts}.png`, blob);
         framesByPage[String(pageNumber)] = url;
       });
     }
