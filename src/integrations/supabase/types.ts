@@ -74,6 +74,9 @@ export type Database = {
           id: string
           language: string
           title: string
+          title_ar: string | null
+          title_en: string | null
+          title_te: string | null
           updated_at: string | null
           user_id: string
           video_generated_at: string | null
@@ -89,6 +92,9 @@ export type Database = {
           id?: string
           language?: string
           title?: string
+          title_ar?: string | null
+          title_en?: string | null
+          title_te?: string | null
           updated_at?: string | null
           user_id: string
           video_generated_at?: string | null
@@ -104,6 +110,9 @@ export type Database = {
           id?: string
           language?: string
           title?: string
+          title_ar?: string | null
+          title_en?: string | null
+          title_te?: string | null
           updated_at?: string | null
           user_id?: string
           video_generated_at?: string | null
@@ -120,6 +129,9 @@ export type Database = {
           page_number: number
           story_id: string
           text: string
+          text_ar: string | null
+          text_en: string | null
+          text_te: string | null
           updated_at: string | null
         }
         Insert: {
@@ -129,6 +141,9 @@ export type Database = {
           page_number: number
           story_id: string
           text?: string
+          text_ar?: string | null
+          text_en?: string | null
+          text_te?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -138,6 +153,9 @@ export type Database = {
           page_number?: number
           story_id?: string
           text?: string
+          text_ar?: string | null
+          text_en?: string | null
+          text_te?: string | null
           updated_at?: string | null
         }
         Relationships: [

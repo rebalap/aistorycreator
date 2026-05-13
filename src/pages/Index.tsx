@@ -27,7 +27,11 @@ const createEmptyPage = (pageNumber: number): StoryPage => ({
   text: "",
   image: null,
   pendingImage: null,
+  translations: {},
 });
+
+type Lang = 'en' | 'ar' | 'te';
+const ALL_LANGS: Lang[] = ['en', 'ar', 'te'];
 
 const Index = () => {
   const navigate = useNavigate();
@@ -62,33 +66,76 @@ const Index = () => {
   const [titleFontStyle, setTitleFontStyle] = useState<TitleFontStyle>('classic');
   const [titleColor, setTitleColor] = useState<string>('#FFFFFF');
    const [titleFontSize, setTitleFontSize] = useState<TitleFontSize>('medium');
-  const [language, setLanguage] = useState<'en' | 'ar' | 'te'>('en');
+  const [language, setLanguage] = useState<Lang>('en');
+  const [titleTranslations, setTitleTranslations] = useState<{ en?: string | null; ar?: string | null; te?: string | null }>({});
   const [isTranslating, setIsTranslating] = useState(false);
   const [showVideoDialog, setShowVideoDialog] = useState(false);
   const [storyVideoUrl, setStoryVideoUrl] = useState<string | null>(null);
 
-  const langName = (l: 'en' | 'ar' | 'te') => l === 'ar' ? 'Arabic' : l === 'te' ? 'Telugu' : 'English';
+  const langName = (l: Lang) => l === 'ar' ? 'Arabic' : l === 'te' ? 'Telugu' : 'English';
 
-  const handleLanguageChange = async (newLang: 'en' | 'ar' | 'te') => {
+  /** Edit the story/cover title in the CURRENT language. Updates cache for current lang and clears other langs (now stale). */
+  const editTitle = useCallback((newTitle: string) => {
+    setStoryTitle(newTitle);
+    setCoverTitle(newTitle);
+    setTitleTranslations((prev) => {
+      const next: typeof prev = { ...prev, [language]: newTitle };
+      ALL_LANGS.forEach((l) => { if (l !== language) next[l] = null; });
+      return next;
+    });
+  }, [language]);
+
+  /** Edit the current page's text in the CURRENT language. Updates cache and clears other lang caches for this page. */
+  const editPageText = useCallback((newText: string) => {
+    setPages((prev) => prev.map((p, i) => {
+      if (i !== currentPageIndex) return p;
+      const nextTranslations = { ...(p.translations || {}), [language]: newText };
+      ALL_LANGS.forEach((l) => { if (l !== language) nextTranslations[l] = null; });
+      return { ...p, text: newText, translations: nextTranslations };
+    }));
+  }, [currentPageIndex, language]);
+
+  const handleLanguageChange = async (newLang: Lang) => {
     if (newLang === language) return;
 
-    // Collect all non-empty texts: title first, then page texts
-    const textsToTranslate: string[] = [];
-    const hasTitle = storyTitle.trim() && storyTitle !== "Untitled Story";
-    if (hasTitle) textsToTranslate.push(storyTitle);
-    
-    const pageTexts = pages.map(p => p.text.trim());
-    const nonEmptyPageIndices: number[] = [];
-    pageTexts.forEach((t, i) => {
-      if (t) {
-        textsToTranslate.push(t);
-        nonEmptyPageIndices.push(i);
-      }
+    // Snapshot whatever is currently displayed into the cache for the OUTGOING language,
+    // so an unsaved manual edit doesn't get lost when we switch.
+    const currentTitleSnapshot = storyTitle;
+    const titleCacheWithSnapshot: typeof titleTranslations = { ...titleTranslations, [language]: currentTitleSnapshot };
+    const pagesWithSnapshot = pages.map((p) => ({
+      ...p,
+      translations: { ...(p.translations || {}), [language]: p.text },
+    }));
+
+    // Decide what we still need to translate (cache miss + non-empty source).
+    const titleNeedsTranslation = !titleCacheWithSnapshot[newLang]
+      && currentTitleSnapshot.trim()
+      && currentTitleSnapshot !== "Untitled Story";
+
+    const pageMissIndices: number[] = [];
+    pagesWithSnapshot.forEach((p, i) => {
+      const cached = p.translations?.[newLang];
+      if (!cached && p.text.trim()) pageMissIndices.push(i);
     });
 
-    // If nothing to translate, just switch language
-    if (textsToTranslate.length === 0) {
+    const textsToTranslate: string[] = [];
+    if (titleNeedsTranslation) textsToTranslate.push(currentTitleSnapshot);
+    pageMissIndices.forEach((i) => textsToTranslate.push(pagesWithSnapshot[i].text));
+
+    const applyFromCache = (titleCache: typeof titleTranslations, pgs: typeof pagesWithSnapshot) => {
+      const newTitle = titleCache[newLang] || (titleNeedsTranslation ? currentTitleSnapshot : (currentTitleSnapshot || ""));
+      setStoryTitle(newTitle);
+      setCoverTitle(newTitle);
+      setTitleTranslations(titleCache);
+      setPages(pgs.map((p) => ({
+        ...p,
+        text: p.translations?.[newLang] || (p.text.trim() ? p.text : ""),
+      })));
       setLanguage(newLang);
+    };
+
+    if (textsToTranslate.length === 0) {
+      applyFromCache(titleCacheWithSnapshot, pagesWithSnapshot);
       return;
     }
 
@@ -108,23 +155,21 @@ const Index = () => {
       const translated: string[] = data.translatedTexts;
       let idx = 0;
 
-      // Apply title
-      if (hasTitle) {
-        setStoryTitle(translated[idx]);
-        setCoverTitle(translated[idx]);
-        idx++;
+      const nextTitleCache = { ...titleCacheWithSnapshot };
+      if (titleNeedsTranslation) {
+        nextTitleCache[newLang] = translated[idx++];
       }
 
-      // Apply page texts
-      setPages(prev => prev.map((page, i) => {
-        const posInNonEmpty = nonEmptyPageIndices.indexOf(i);
-        if (posInNonEmpty !== -1) {
-          return { ...page, text: translated[idx + posInNonEmpty] };
+      const nextPages = pagesWithSnapshot.map((p, i) => {
+        const missPos = pageMissIndices.indexOf(i);
+        if (missPos !== -1) {
+          const t = translated[idx + missPos];
+          return { ...p, translations: { ...(p.translations || {}), [newLang]: t } };
         }
-        return page;
-      }));
+        return p;
+      });
 
-      setLanguage(newLang);
+      applyFromCache(nextTitleCache, nextPages);
       toast.success(`Translated to ${langName(newLang)}`, { id: toastId });
     } catch (err: any) {
       console.error('Batch translation error:', err);
@@ -147,6 +192,7 @@ const Index = () => {
     setTitleColor(draft.titleColor);
     setTitleFontSize(draft.titleFontSize);
     if (draft.language) setLanguage(draft.language);
+    if (draft.titleTranslations) setTitleTranslations(draft.titleTranslations);
     if (draft.currentStoryId) {
       setCurrentStoryId(draft.currentStoryId);
     }
@@ -170,6 +216,7 @@ const Index = () => {
     titleColor,
     titleFontSize,
     language,
+    titleTranslations,
     currentStoryId,
     user,
     onRestoreDraft: handleRestoreDraft,
@@ -198,23 +245,44 @@ const Index = () => {
     if (result) {
       const { story, pages: loadedPages } = result;
       setCurrentStoryId(story.id);
-      setStoryTitle(story.title);
       setCharacterImages(story.character_image_url ? [story.character_image_url] : []);
       setBackgroundImages(story.background_image_urls || []);
       setCoverImage(story.cover_image_url || null);
-      setCoverTitle(story.title);
       setStoryVideoUrl((story as any).video_url || null);
-      const lang = (story as any).language;
-      setLanguage(lang === 'ar' || lang === 'te' ? lang : 'en');
+      const rawLang = (story as any).language;
+      const lang: Lang = rawLang === 'ar' || rawLang === 'te' ? rawLang : 'en';
+      setLanguage(lang);
+
+      // Hydrate title translations from DB
+      const tCache = {
+        en: (story as any).title_en ?? null,
+        ar: (story as any).title_ar ?? null,
+        te: (story as any).title_te ?? null,
+      };
+      // Ensure current lang is populated from `title` if its column is empty
+      if (!tCache[lang] && story.title) tCache[lang] = story.title;
+      setTitleTranslations(tCache);
+      const displayedTitle = tCache[lang] || story.title;
+      setStoryTitle(displayedTitle);
+      setCoverTitle(displayedTitle);
       
       if (loadedPages.length > 0) {
-        setPages(loadedPages.map(p => ({
-          id: p.id,
-          pageNumber: p.page_number,
-          text: p.text,
-          image: p.image_url,
-          pendingImage: null,
-        })));
+        setPages(loadedPages.map((p: any) => {
+          const pCache = {
+            en: p.text_en ?? null,
+            ar: p.text_ar ?? null,
+            te: p.text_te ?? null,
+          };
+          if (!pCache[lang] && p.text) pCache[lang] = p.text;
+          return {
+            id: p.id,
+            pageNumber: p.page_number,
+            text: pCache[lang] || p.text || "",
+            image: p.image_url,
+            pendingImage: null,
+            translations: pCache,
+          };
+        }));
       } else {
         setPages([createEmptyPage(1)]);
       }
@@ -279,10 +347,16 @@ const Index = () => {
           const uploaded = await uploadImageToStorage(imageUrl, `page-${page.pageNumber}-${Date.now()}.png`);
           if (uploaded) imageUrl = uploaded;
         }
+        // Build per-language text columns from the page's translations cache,
+        // making sure the current language column reflects the live displayed text.
+        const tr = { ...(page.translations || {}), [language]: page.text };
         pageDataForSave.push({
           page_number: page.pageNumber,
           text: page.text,
           image_url: imageUrl,
+          text_en: tr.en ?? null,
+          text_ar: tr.ar ?? null,
+          text_te: tr.te ?? null,
         });
       }
 
@@ -293,6 +367,9 @@ const Index = () => {
         if (uploaded) coverImageUrl = uploaded;
       }
 
+      // Title cache reflecting the live displayed title in the current language
+      const titleCache = { ...titleTranslations, [language]: title };
+
       if (currentStoryId) {
         // Update existing story
         await updateStory(currentStoryId, {
@@ -301,6 +378,9 @@ const Index = () => {
           character_image_url: characterImageUrl,
           background_image_urls: backgroundImages,
           language,
+          title_en: titleCache.en ?? null,
+          title_ar: titleCache.ar ?? null,
+          title_te: titleCache.te ?? null,
         });
         await saveStoryPages(currentStoryId, pageDataForSave);
         setStoryTitle(title);
@@ -309,7 +389,12 @@ const Index = () => {
         // Create new story
         const newStory = await createStory(title, characterImageUrl || undefined, backgroundImages.length > 0 ? backgroundImages : undefined, language);
         if (newStory) {
-          await updateStory(newStory.id, { cover_image_url: coverImageUrl });
+          await updateStory(newStory.id, {
+            cover_image_url: coverImageUrl,
+            title_en: titleCache.en ?? null,
+            title_ar: titleCache.ar ?? null,
+            title_te: titleCache.te ?? null,
+          });
           await saveStoryPages(newStory.id, pageDataForSave);
           setCurrentStoryId(newStory.id);
           setStoryTitle(title);
@@ -486,7 +571,7 @@ const Index = () => {
   };
 
   const handleTextChange = (newText: string) => {
-    updateCurrentPage({ text: newText });
+    editPageText(newText);
   };
 
   // Cover page handlers
@@ -933,7 +1018,7 @@ const Index = () => {
             <div className="flex-1">
               <Input
                 value={storyTitle}
-                onChange={(e) => setStoryTitle(e.target.value)}
+                onChange={(e) => editTitle(e.target.value)}
                 className="text-lg font-bold border-none bg-transparent p-0 h-auto focus-visible:ring-0"
                 placeholder="Story Title"
               />
@@ -1170,24 +1255,8 @@ const Index = () => {
                             className="absolute bottom-2 right-2"
                             disabled={isTranslating}
                             onClick={async () => {
-                              const nextLang: 'en' | 'ar' | 'te' = language === 'en' ? 'ar' : language === 'ar' ? 'te' : 'en';
-                              setIsTranslating(true);
-                              try {
-                                const { data, error } = await supabase.functions.invoke('translate-story-text', {
-                                  body: { text: currentPage.text, targetLanguage: nextLang },
-                                });
-                                if (error) throw error;
-                                if (data?.translatedText) {
-                                  handleTextChange(data.translatedText);
-                                  setLanguage(nextLang);
-                                  toast.success(`Translated to ${langName(nextLang)}`);
-                                }
-                              } catch (err: any) {
-                                console.error('Translation error:', err);
-                                toast.error(err.message || 'Translation failed');
-                              } finally {
-                                setIsTranslating(false);
-                              }
+                              const nextLang: Lang = language === 'en' ? 'ar' : language === 'ar' ? 'te' : 'en';
+                              await handleLanguageChange(nextLang);
                             }}
                           >
                             {isTranslating ? (
@@ -1253,7 +1322,7 @@ const Index = () => {
                 onEdit={handleEditCover}
                 onAccept={handleAcceptCover}
                 onDiscard={handleDiscardCover}
-                onTitleChange={setCoverTitle}
+                onTitleChange={editTitle}
                 titlePosition={titlePosition}
                 titleFontStyle={titleFontStyle}
                 titleColor={titleColor}

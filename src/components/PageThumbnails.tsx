@@ -7,6 +7,8 @@ export interface StoryPage {
   text: string;
   image: string | null;
   pendingImage: string | null;
+  /** Cached translations of `text` per language. The currently displayed text is also mirrored under translations[currentLanguage]. */
+  translations?: { en?: string | null; ar?: string | null; te?: string | null };
 }
 
 interface PageThumbnailsProps {
