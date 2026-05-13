@@ -193,11 +193,22 @@ serve(async (req) => {
       });
     }
     clearTimeout(timeoutId);
-    const json = await res.json();
+    const rawText = await res.text();
+    let json: any = null;
+    try { json = JSON.parse(rawText); } catch { /* non-JSON body */ }
     if (!res.ok || !json?.data?.video_id) {
-      console.error("HeyGen submit error", res.status, json);
-      const msg = json?.error?.message || json?.message || "Failed to submit video";
-      return new Response(JSON.stringify({ error: msg }), {
+      console.error("HeyGen submit error", res.status, rawText);
+      const msg =
+        json?.error?.message ||
+        json?.message ||
+        (typeof json?.error === "string" ? json.error : null) ||
+        rawText ||
+        "Failed to submit video";
+      return new Response(JSON.stringify({
+        error: `HeyGen ${res.status}: ${msg}`,
+        heygen_status: res.status,
+        heygen_body: json ?? rawText,
+      }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
