@@ -1,44 +1,36 @@
-## Performance Optimization Plan
+## What I found
 
-### Issues found
+- Edge function logs for `heygen-generate-video` only show boot lines — no `console.error` or `console.log` from any submit attempt was captured.
+- `generation_logs` for your user is empty, which means the submit never reached the insert step (it happens *after* a successful HeyGen response). So either:
+  1. HeyGen returned a non-OK response and we returned 502 without logging it visibly, **or**
+  2. The function aborted at our 60s `AbortController` timeout and returned 504, **or**
+  3. The browser's `supabase.functions.invoke` call itself timed out / dropped before the function replied.
+- The dialog "reset to original" matches the client `catch` branch firing — `toast.error(e.message)` would briefly appear and then submit/polling state both go false.
+- Separately, the console is flooded with Postgres `57014 statement timeout` errors on `/rest/v1/stories` — that's the community-shelf load, unrelated to video, but it confirms the backend is under load right now.
 
-1. **Shelf page page-count N+1**: `Shelf.tsx` loops over every story (own + community) and runs a separate `story_pages` count query for each. With 50 stories that's 50 round-trips.
-2. **`useStories` fetches every community story**: pulls ALL stories from every user with no pagination/limit. Will degrade as the table grows.
-3. **`useUsageStats` double query**: runs a `count` query and then a separate `select story_id` query on `generation_logs` — can be a single query.
-4. **Missing DB indexes** on hot filter columns:
-   - `stories.user_id` (used in every fetch + RLS-style filters)
-   - `stories.updated_at` (used in `ORDER BY` for both lists)
-   - `story_pages.story_id` already covered by unique key — OK.
-   - `generation_logs(user_id, story_id)` composite for stats.
-5. **Realtime subscription** in `useStories` only listens to the current user's stories but the Shelf also shows community stories — those won't update live (minor, optional).
+## Plan — instrument and surface the actual cause
 
-### Changes
+Goal: next attempt produces a clear error message in the UI **and** persistent logs you can read.
 
-**Database (migration)**
-- Add indexes:
-  - `idx_stories_user_id` on `stories(user_id)`
-  - `idx_stories_updated_at` on `stories(updated_at DESC)`
-  - `idx_generation_logs_user_story` on `generation_logs(user_id, story_id)`
+### 1. `supabase/functions/heygen-generate-video/index.ts`
+- Add `console.log` at the top of the submit branch with: storyId, scene count, dimension, payload size in bytes.
+- Log right before and right after the HeyGen `fetch` with elapsed ms.
+- On the `AbortError` path, return a structured 504 with `{ error: "HeyGen submit timed out after 60s", elapsed_ms }`.
+- On non-OK responses, log full `res.status`, `res.headers.get("x-trace-id")` if present, and the raw body (already done — verify it surfaces).
+- Increase the internal AbortController timeout from 60s → 120s (HeyGen v2 generate can be slow when it has to fetch many large background images).
+- Add a `console.log("submit ok", { video_id })` before returning success.
 
-**`src/pages/Shelf.tsx`**
-- Replace the per-story count loop with a **single** query:
-  ```ts
-  supabase.from("story_pages").select("story_id").in("story_id", allIds)
-  ```
-  then tally counts client-side in one pass. One round-trip instead of N.
+### 2. `src/components/GenerateVideoDialog.tsx`
+- In the `catch` of `handleGenerate`, also `console.error(e)` with the full error object so it lands in the browser console next time, and show the `heygen_status` / `heygen_body` from the function's JSON response in the toast (currently we only show `e.message` which truncates).
+- Make the toast `duration: 10000` so it doesn't disappear before you can read it.
 
-**`src/hooks/useStories.tsx`**
-- Limit community stories to the most recent 100 (`.limit(100)`) to bound payload.
-- Select only the columns Shelf actually renders (`id, user_id, title, cover_image_url, updated_at`) instead of `*` for the list views — keeps payload small. Detail view (`getStoryWithPages`) keeps `*`.
+### 3. After deploying
+- You retry "Generate".
+- I'll re-pull edge function logs and the browser console to read the exact HeyGen failure (status code + body) and tell you whether it's:
+  - a quota/billing issue on HeyGen,
+  - an image-URL fetch failure on HeyGen's side (signed URL expired / not reachable),
+  - or a function/runtime timeout.
 
-**`src/hooks/useUsageStats.tsx`**
-- Collapse the two queries into a single `select("story_id")` and derive both `totalGenerations` (length) and `storiesWithGenerations` (unique set) from one response.
-
-### Out of scope
-- No UI changes.
-- No changes to edge functions or auth.
-- Realtime for community stories left as-is unless you want it.
-
-### Technical notes
-- All index creates use `IF NOT EXISTS`, no destructive changes.
-- Column-narrowed selects keep `Story` type compatible because optional fields stay `undefined`.
+### Out of scope for this plan
+- I'm **not** switching to the async-job pattern (DB row + background `EdgeRuntime.waitUntil` + client polling) yet — that's the real fix if the submit itself is what's timing out, but let's confirm the cause first with the logging above before doing that larger refactor.
+- I'm not touching the unrelated `stories` query timeout.

@@ -172,8 +172,19 @@ serve(async (req) => {
       title: (story.title || "Story video").slice(0, 150),
     };
 
+    const payloadStr = JSON.stringify(payload);
+    console.log("heygen submit start", {
+      storyId: body.storyId,
+      scenes: scenes.length,
+      dimension,
+      payload_bytes: payloadStr.length,
+      first_image: scenes[0]?.image?.slice(0, 120),
+    });
+
     const ctrl = new AbortController();
-    const timeoutId = setTimeout(() => ctrl.abort(), 60_000);
+    const TIMEOUT_MS = 120_000;
+    const timeoutId = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    const startedAt = Date.now();
     let res: Response;
     try {
       res = await fetch("https://api.heygen.com/v2/video/generate", {
@@ -182,22 +193,29 @@ serve(async (req) => {
           "X-Api-Key": HEYGEN_API_KEY,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
+        body: payloadStr,
         signal: ctrl.signal,
       });
     } catch (e) {
       clearTimeout(timeoutId);
-      console.error("HeyGen submit fetch failed/timed out", e);
-      return new Response(JSON.stringify({ error: "HeyGen submission timed out. Try fewer pages or smaller images." }), {
+      const elapsed_ms = Date.now() - startedAt;
+      console.error("HeyGen submit fetch failed", { elapsed_ms, error: String(e) });
+      return new Response(JSON.stringify({
+        error: `HeyGen submit failed after ${elapsed_ms}ms: ${String(e)}`,
+        elapsed_ms,
+      }), {
         status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     clearTimeout(timeoutId);
+    const elapsed_ms = Date.now() - startedAt;
     const rawText = await res.text();
+    const traceId = res.headers.get("x-trace-id") || res.headers.get("x-request-id");
+    console.log("heygen submit response", { status: res.status, elapsed_ms, traceId, body_preview: rawText.slice(0, 800) });
     let json: any = null;
     try { json = JSON.parse(rawText); } catch { /* non-JSON body */ }
     if (!res.ok || !json?.data?.video_id) {
-      console.error("HeyGen submit error", res.status, rawText);
+      console.error("HeyGen submit error", { status: res.status, traceId, rawText });
       const msg =
         json?.error?.message ||
         json?.message ||
@@ -208,10 +226,13 @@ serve(async (req) => {
         error: `HeyGen ${res.status}: ${msg}`,
         heygen_status: res.status,
         heygen_body: json ?? rawText,
+        trace_id: traceId,
+        elapsed_ms,
       }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    console.log("heygen submit ok", { video_id: json.data.video_id, elapsed_ms });
 
     await supabase.from("generation_logs").insert({
       user_id: user.id,

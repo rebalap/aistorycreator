@@ -147,12 +147,20 @@ export const GenerateVideoDialog = ({ open, onOpenChange, storyId, hasCover, onC
       const { data, error } = await supabase.functions.invoke("heygen-generate-video", {
         body: { storyId, voiceId, avatarId, speed, aspectRatio, transition, styleTemplate, includeCover },
       });
-      if (error) throw error;
+      console.log("heygen-generate-video response", { data, error });
+      if (error) {
+        // Supabase wraps non-2xx; data may still contain the parsed JSON body
+        const d: any = data ?? {};
+        const detail = d.error || d.heygen_body || error.message;
+        const status = d.heygen_status ? ` (HeyGen ${d.heygen_status})` : "";
+        throw new Error(`${typeof detail === "string" ? detail : JSON.stringify(detail)}${status}`);
+      }
       const videoId = (data as any)?.video_id;
-      if (!videoId) throw new Error("No video id returned");
+      if (!videoId) throw new Error(`No video id returned: ${JSON.stringify(data)}`);
       await pollStatus(videoId);
     } catch (e: any) {
-      toast.error(e?.message || "Failed to start video");
+      console.error("Generate video failed", e);
+      toast.error(e?.message || "Failed to start video", { duration: 12000 });
     } finally {
       setSubmitting(false);
     }
