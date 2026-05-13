@@ -347,10 +347,16 @@ const Index = () => {
           const uploaded = await uploadImageToStorage(imageUrl, `page-${page.pageNumber}-${Date.now()}.png`);
           if (uploaded) imageUrl = uploaded;
         }
+        // Build per-language text columns from the page's translations cache,
+        // making sure the current language column reflects the live displayed text.
+        const tr = { ...(page.translations || {}), [language]: page.text };
         pageDataForSave.push({
           page_number: page.pageNumber,
           text: page.text,
           image_url: imageUrl,
+          text_en: tr.en ?? null,
+          text_ar: tr.ar ?? null,
+          text_te: tr.te ?? null,
         });
       }
 
@@ -361,6 +367,9 @@ const Index = () => {
         if (uploaded) coverImageUrl = uploaded;
       }
 
+      // Title cache reflecting the live displayed title in the current language
+      const titleCache = { ...titleTranslations, [language]: title };
+
       if (currentStoryId) {
         // Update existing story
         await updateStory(currentStoryId, {
@@ -369,6 +378,9 @@ const Index = () => {
           character_image_url: characterImageUrl,
           background_image_urls: backgroundImages,
           language,
+          title_en: titleCache.en ?? null,
+          title_ar: titleCache.ar ?? null,
+          title_te: titleCache.te ?? null,
         });
         await saveStoryPages(currentStoryId, pageDataForSave);
         setStoryTitle(title);
@@ -377,7 +389,12 @@ const Index = () => {
         // Create new story
         const newStory = await createStory(title, characterImageUrl || undefined, backgroundImages.length > 0 ? backgroundImages : undefined, language);
         if (newStory) {
-          await updateStory(newStory.id, { cover_image_url: coverImageUrl });
+          await updateStory(newStory.id, {
+            cover_image_url: coverImageUrl,
+            title_en: titleCache.en ?? null,
+            title_ar: titleCache.ar ?? null,
+            title_te: titleCache.te ?? null,
+          });
           await saveStoryPages(newStory.id, pageDataForSave);
           setCurrentStoryId(newStory.id);
           setStoryTitle(title);
