@@ -17,6 +17,7 @@ export interface StoryDraft {
   titleColor: string;
   titleFontSize: TitleFontSize;
   language?: 'en' | 'ar' | 'te';
+  titleTranslations?: { en?: string | null; ar?: string | null; te?: string | null };
   lastSaved: number;
   currentStoryId: string | null;
 }
@@ -37,6 +38,7 @@ interface UseAutosaveProps {
   titleColor: string;
   titleFontSize: TitleFontSize;
   language: 'en' | 'ar' | 'te';
+  titleTranslations?: { en?: string | null; ar?: string | null; te?: string | null };
   currentStoryId: string | null;
   user: any;
   onRestoreDraft: (draft: StoryDraft) => void;
