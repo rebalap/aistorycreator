@@ -245,23 +245,44 @@ const Index = () => {
     if (result) {
       const { story, pages: loadedPages } = result;
       setCurrentStoryId(story.id);
-      setStoryTitle(story.title);
       setCharacterImages(story.character_image_url ? [story.character_image_url] : []);
       setBackgroundImages(story.background_image_urls || []);
       setCoverImage(story.cover_image_url || null);
-      setCoverTitle(story.title);
       setStoryVideoUrl((story as any).video_url || null);
-      const lang = (story as any).language;
-      setLanguage(lang === 'ar' || lang === 'te' ? lang : 'en');
+      const rawLang = (story as any).language;
+      const lang: Lang = rawLang === 'ar' || rawLang === 'te' ? rawLang : 'en';
+      setLanguage(lang);
+
+      // Hydrate title translations from DB
+      const tCache = {
+        en: (story as any).title_en ?? null,
+        ar: (story as any).title_ar ?? null,
+        te: (story as any).title_te ?? null,
+      };
+      // Ensure current lang is populated from `title` if its column is empty
+      if (!tCache[lang] && story.title) tCache[lang] = story.title;
+      setTitleTranslations(tCache);
+      const displayedTitle = tCache[lang] || story.title;
+      setStoryTitle(displayedTitle);
+      setCoverTitle(displayedTitle);
       
       if (loadedPages.length > 0) {
-        setPages(loadedPages.map(p => ({
-          id: p.id,
-          pageNumber: p.page_number,
-          text: p.text,
-          image: p.image_url,
-          pendingImage: null,
-        })));
+        setPages(loadedPages.map((p: any) => {
+          const pCache = {
+            en: p.text_en ?? null,
+            ar: p.text_ar ?? null,
+            te: p.text_te ?? null,
+          };
+          if (!pCache[lang] && p.text) pCache[lang] = p.text;
+          return {
+            id: p.id,
+            pageNumber: p.page_number,
+            text: pCache[lang] || p.text || "",
+            image: p.image_url,
+            pendingImage: null,
+            translations: pCache,
+          };
+        }));
       } else {
         setPages([createEmptyPage(1)]);
       }
