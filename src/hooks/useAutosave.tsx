@@ -155,24 +155,34 @@ export const useAutosave = ({
         coverImageUrl = await uploadImage(coverImageUrl, `cover-autosave-${Date.now()}.png`);
       }
 
-      // Prepare pages
+      // Prepare pages with per-language text columns
       const pageData = await Promise.all(pages.map(async (page) => {
         let imageUrl = page.image;
         if (imageUrl?.startsWith("data:")) {
           imageUrl = await uploadImage(imageUrl, `page-${page.pageNumber}-autosave-${Date.now()}.png`);
         }
+        const tr = { ...(page.translations || {}), [language]: page.text };
         return {
           page_number: page.pageNumber,
           text: page.text,
           image_url: imageUrl,
+          text_en: tr.en ?? null,
+          text_ar: tr.ar ?? null,
+          text_te: tr.te ?? null,
         };
       }));
+
+      const titleCache = { ...(titleTranslations || {}), [language]: storyTitle };
 
       await updateStory(currentStoryId, {
         title: storyTitle,
         cover_image_url: coverImageUrl,
         character_image_url: characterImageUrl,
         background_image_urls: backgroundImages,
+        language,
+        title_en: titleCache.en ?? null,
+        title_ar: titleCache.ar ?? null,
+        title_te: titleCache.te ?? null,
       });
       await saveStoryPages(currentStoryId, pageData);
       
@@ -181,7 +191,7 @@ export const useAutosave = ({
       console.error("Database autosave failed:", error);
       setStatus("unsaved");
     }
-  }, [currentStoryId, user, storyTitle, characterImages, backgroundImages, pages, coverImage, updateStory, saveStoryPages]);
+  }, [currentStoryId, user, storyTitle, characterImages, backgroundImages, pages, coverImage, language, titleTranslations, updateStory, saveStoryPages]);
 
   // Check for existing draft on mount and auto-restore
   useEffect(() => {
