@@ -455,7 +455,7 @@ const Index = () => {
       }
     } catch (error: any) {
       console.error("Save error:", error);
-      toast.error("Failed to save story");
+      toast.error(error?.message || "Failed to save story", { duration: 8000 });
     } finally {
       setIsSaving(false);
       setShowSaveDialog(false);
