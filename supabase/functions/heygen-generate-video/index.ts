@@ -241,6 +241,7 @@ serve(async (req) => {
       scenes: scenes.length,
       dimension,
       language: body.language,
+      transition: transitionType,
       payload_bytes: payloadStr.length,
       first_image: scenes[0]?.image?.slice(0, 120),
       first_text_preview: scenes[0]?.text?.slice(0, 80),
