@@ -63,6 +63,7 @@ export const useAutosave = ({
   currentStoryId,
   user,
   onRestoreDraft,
+  isManualSaving = false,
 }: UseAutosaveProps) => {
   const { updateStory, saveStoryPages } = useStories();
   const [status, setStatus] = useState<AutosaveStatus>("idle");
