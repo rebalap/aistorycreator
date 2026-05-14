@@ -22,6 +22,7 @@ interface SubmitBody {
   pageTexts?: Record<string, string>;
   coverTitle?: string;
   language?: string;
+  pauseDuration?: number;
 }
 
 serve(async (req) => {
@@ -111,6 +112,7 @@ serve(async (req) => {
       });
     }
     const speed = Math.min(2, Math.max(0.5, body.speed ?? 1));
+    const pauseDuration = Math.min(10, Math.max(0, body.pauseDuration ?? 0));
     const aspect = body.aspectRatio ?? "16:9";
     const dimension = aspect === "9:16"
       ? { width: 720, height: 1280 }
@@ -181,6 +183,7 @@ serve(async (req) => {
         speed,
       },
       background: { type: "image", url: s.image },
+      ...(pauseDuration > 0 ? { pause: { duration: pauseDuration } } : {}),
     }));
 
     const payload = {
