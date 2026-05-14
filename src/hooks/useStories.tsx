@@ -166,23 +166,20 @@ export const useStories = () => {
   };
 
   const updateStory = async (storyId: string, updates: Partial<Story>) => {
-    try {
-      const { data, error } = await supabase
-        .from("stories")
-        .update(updates as any)
-        .eq("id", storyId)
-        .select()
-        .single();
+    const { data, error } = await supabase
+      .from("stories")
+      .update(updates as any)
+      .eq("id", storyId)
+      .select()
+      .single();
 
-      if (error) throw error;
-      
-      setStories(prev => prev.map(s => s.id === storyId ? data : s));
-      return data;
-    } catch (error: any) {
+    if (error) {
       console.error("Error updating story:", error);
-      toast.error("Failed to update story");
-      return null;
+      throw error;
     }
+
+    setStories(prev => prev.map(s => s.id === storyId ? data : s));
+    return data;
   };
 
   const deleteStory = async (storyId: string) => {
