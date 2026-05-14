@@ -112,7 +112,9 @@ serve(async (req) => {
       });
     }
     const speed = Math.min(2, Math.max(0.5, body.speed ?? 1));
-    const pauseDuration = Math.min(10, Math.max(0, body.pauseDuration ?? 0));
+    const rawPause = body.pauseDuration ?? 0;
+    // HeyGen silence voice supports 1.0-100.0s; 0 disables pauses.
+    const pauseDuration = rawPause > 0 ? Math.min(100, Math.max(1, rawPause)) : 0;
     const aspect = body.aspectRatio ?? "16:9";
     const dimension = aspect === "9:16"
       ? { width: 720, height: 1280 }
