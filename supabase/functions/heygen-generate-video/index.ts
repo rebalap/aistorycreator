@@ -178,6 +178,8 @@ serve(async (req) => {
       offset: { x: 1, y: 1 },
     };
 
+    const transitionType = body.transition ?? "slide_left";
+
     const buildSceneInput = (s: { text: string; image: string }) => ({
       character: characterPlaceholder,
       voice: {
@@ -200,6 +202,13 @@ serve(async (req) => {
       video_inputs.push(buildSceneInput(scenes[i]));
       if (pauseDuration > 0 && i < scenes.length - 1) {
         video_inputs.push(buildSilenceInput(scenes[i].image));
+      }
+    }
+
+    // Attach transition to every scene EXCEPT the last (transition plays into the next scene).
+    if (transitionType !== "cut") {
+      for (let i = 0; i < video_inputs.length - 1; i++) {
+        video_inputs[i].transition = { type: transitionType };
       }
     }
 
