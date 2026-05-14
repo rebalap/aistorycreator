@@ -166,23 +166,20 @@ export const useStories = () => {
   };
 
   const updateStory = async (storyId: string, updates: Partial<Story>) => {
-    try {
-      const { data, error } = await supabase
-        .from("stories")
-        .update(updates as any)
-        .eq("id", storyId)
-        .select()
-        .single();
+    const { data, error } = await supabase
+      .from("stories")
+      .update(updates as any)
+      .eq("id", storyId)
+      .select()
+      .single();
 
-      if (error) throw error;
-      
-      setStories(prev => prev.map(s => s.id === storyId ? data : s));
-      return data;
-    } catch (error: any) {
+    if (error) {
       console.error("Error updating story:", error);
-      toast.error("Failed to update story");
-      return null;
+      throw error;
     }
+
+    setStories(prev => prev.map(s => s.id === storyId ? data : s));
+    return data;
   };
 
   const deleteStory = async (storyId: string) => {
@@ -233,25 +230,26 @@ export const useStories = () => {
       text_te?: string | null;
     }[]
   ) => {
-    try {
-      // Delete existing pages
-      await supabase.from("story_pages").delete().eq("story_id", storyId);
-
-      // Insert new pages
-      if (pages.length > 0) {
-        const { error } = await supabase
-          .from("story_pages")
-          .insert(pages.map(p => ({ ...p, story_id: storyId })));
-
-        if (error) throw error;
-      }
-
-      return true;
-    } catch (error: any) {
-      console.error("Error saving pages:", error);
-      toast.error("Failed to save pages");
-      return false;
+    // Delete existing pages
+    const { error: delErr } = await supabase.from("story_pages").delete().eq("story_id", storyId);
+    if (delErr) {
+      console.error("Error deleting old pages:", delErr);
+      throw delErr;
     }
+
+    // Insert new pages
+    if (pages.length > 0) {
+      const { error } = await supabase
+        .from("story_pages")
+        .insert(pages.map(p => ({ ...p, story_id: storyId })));
+
+      if (error) {
+        console.error("Error inserting pages:", error);
+        throw error;
+      }
+    }
+
+    return true;
   };
 
   return {

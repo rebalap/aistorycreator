@@ -125,7 +125,7 @@ serve(async (req) => {
     // Load story + pages
     const { data: story, error: sErr } = await supabase
       .from("stories")
-      .select("id, user_id, title, cover_image_url, video_url")
+      .select("id, user_id, title, title_en, title_ar, title_te, cover_image_url, video_url")
       .eq("id", body.storyId)
       .single();
     if (sErr || !story) {
@@ -137,12 +137,19 @@ serve(async (req) => {
 
     const { data: pages, error: pErr } = await supabase
       .from("story_pages")
-      .select("page_number, text, image_url")
+      .select("page_number, text, text_en, text_ar, text_te, image_url")
       .eq("story_id", body.storyId)
       .order("page_number", { ascending: true });
     if (pErr) throw pErr;
 
-    const usable = (pages ?? []).filter((p) => p.text?.trim() && p.image_url);
+    const lang = body.language === "ar" || body.language === "te" ? body.language : "en";
+    const pageLangCol = lang === "ar" ? "text_ar" : lang === "te" ? "text_te" : "text_en";
+    const titleLangCol = lang === "ar" ? "title_ar" : lang === "te" ? "title_te" : "title_en";
+
+    const usable = (pages ?? []).filter((p) => {
+      const t = ((p as any)[pageLangCol]?.trim() || p.text?.trim());
+      return t && p.image_url;
+    });
     if (usable.length === 0) {
       return new Response(JSON.stringify({ error: "Story has no narratable pages with images" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -151,7 +158,13 @@ serve(async (req) => {
 
     const framesByPage = body.framesByPage ?? {};
     const pageTexts = body.pageTexts ?? {};
-    const effectiveTitle = (body.coverTitle?.trim() || story.title || "").trim();
+    // Prefer client-supplied (live UI) → language-specific DB column → generic title (last resort)
+    const effectiveTitle = (
+      body.coverTitle?.trim()
+      || (story as any)[titleLangCol]?.trim()
+      || story.title
+      || ""
+    ).trim();
     const scenes: { text: string; image: string }[] = [];
     if (body.includeCover && (body.coverFrameUrl || story.cover_image_url)) {
       scenes.push({
@@ -161,7 +174,9 @@ serve(async (req) => {
     }
     for (const p of usable) {
       const frame = framesByPage[String(p.page_number)] || p.image_url;
-      const text = pageTexts[String(p.page_number)]?.trim() || p.text;
+      const text = pageTexts[String(p.page_number)]?.trim()
+        || (p as any)[pageLangCol]?.trim()
+        || p.text;
       scenes.push({ text, image: frame });
     }
     if (scenes.length > MAX_SCENES) scenes.length = MAX_SCENES;

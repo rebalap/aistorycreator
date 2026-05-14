@@ -142,17 +142,46 @@ const Index = () => {
       const newTitle = isValidCache(cachedTitle, currentTitleSnapshot)
         ? (cachedTitle as string)
         : currentTitleSnapshot;
-      setStoryTitle(newTitle);
-      setCoverTitle(newTitle);
-      setTitleTranslations(titleCache);
-      setPages(pgs.map((p) => {
+      const updatedPages = pgs.map((p) => {
         const cachedText = p.translations?.[newLang];
         return {
           ...p,
           text: isValidCache(cachedText, p.text) ? (cachedText as string) : p.text,
         };
-      }));
+      });
+      setStoryTitle(newTitle);
+      setCoverTitle(newTitle);
+      setTitleTranslations(titleCache);
+      setPages(updatedPages);
       setLanguage(newLang);
+
+      // Persist immediately so a re-hydrate (or first-time video generate) sees the new language.
+      if (currentStoryId) {
+        (async () => {
+          try {
+            await updateStory(currentStoryId, {
+              title: newTitle,
+              language: newLang,
+              title_en: titleCache.en ?? null,
+              title_ar: titleCache.ar ?? null,
+              title_te: titleCache.te ?? null,
+            } as any);
+            await saveStoryPages(currentStoryId, updatedPages.map((p) => {
+              const tr = { ...(p.translations || {}), [newLang]: p.text };
+              return {
+                page_number: p.pageNumber,
+                text: p.text,
+                image_url: p.image,
+                text_en: tr.en ?? null,
+                text_ar: tr.ar ?? null,
+                text_te: tr.te ?? null,
+              };
+            }));
+          } catch (e) {
+            console.error("Persist language switch failed:", e);
+          }
+        })();
+      }
     };
 
     if (textsToTranslate.length === 0) {
@@ -260,6 +289,7 @@ const Index = () => {
     currentStoryId,
     user,
     onRestoreDraft: handleRestoreDraft,
+    isManualSaving: isSaving,
   });
 
   const currentPage = pages[currentPageIndex];
@@ -271,12 +301,12 @@ const Index = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Load story from URL param (skip if draft was already restored)
+  // Load story from URL param (skip if draft was already restored or already loaded)
   useEffect(() => {
-    if (storyId && user && !draftRestored) {
+    if (storyId && user && !draftRestored && currentStoryId !== storyId) {
       loadStory(storyId);
     }
-  }, [storyId, user, draftRestored]);
+  }, [storyId, user, draftRestored, currentStoryId]);
 
   const loadStory = async (id: string) => {
     setIsLoadingStory(true);
@@ -455,7 +485,7 @@ const Index = () => {
       }
     } catch (error: any) {
       console.error("Save error:", error);
-      toast.error("Failed to save story");
+      toast.error(error?.message || "Failed to save story", { duration: 8000 });
     } finally {
       setIsSaving(false);
       setShowSaveDialog(false);

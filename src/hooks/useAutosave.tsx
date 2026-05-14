@@ -42,6 +42,7 @@ interface UseAutosaveProps {
   currentStoryId: string | null;
   user: any;
   onRestoreDraft: (draft: StoryDraft) => void;
+  isManualSaving?: boolean;
 }
 
 export type AutosaveStatus = "idle" | "saving" | "saved" | "unsaved";
@@ -62,6 +63,7 @@ export const useAutosave = ({
   currentStoryId,
   user,
   onRestoreDraft,
+  isManualSaving = false,
 }: UseAutosaveProps) => {
   const { updateStory, saveStoryPages } = useStories();
   const [status, setStatus] = useState<AutosaveStatus>("idle");
@@ -255,6 +257,9 @@ export const useAutosave = ({
   }, [getDraftHash, saveToLocal]);
 
   // Database autosave interval for saved stories
+  const isManualSavingRef = useRef(isManualSaving);
+  useEffect(() => { isManualSavingRef.current = isManualSaving; }, [isManualSaving]);
+
   useEffect(() => {
     if (!currentStoryId || !user) {
       if (dbSaveInterval.current) {
@@ -264,6 +269,7 @@ export const useAutosave = ({
     }
 
     dbSaveInterval.current = setInterval(() => {
+      if (isManualSavingRef.current) return; // skip while a manual save is in flight
       const currentHash = getDraftHash();
       if (currentHash !== lastSavedRef.current) {
         saveToDatabase();
