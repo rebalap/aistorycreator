@@ -98,6 +98,12 @@ const Index = () => {
   const handleLanguageChange = async (newLang: Lang) => {
     if (newLang === language) return;
 
+    // A cache entry only counts as a real translation when it is non-empty AND
+    // distinct from the source text. Stale caches that mirror the source (from
+    // older flows) must not short-circuit the API call.
+    const isValidCache = (cached: string | null | undefined, source: string) =>
+      !!cached && cached.trim().length > 0 && cached.trim() !== source.trim();
+
     // Snapshot whatever is currently displayed into the cache for the OUTGOING language,
     // so an unsaved manual edit doesn't get lost when we switch.
     const currentTitleSnapshot = storyTitle;
@@ -108,29 +114,44 @@ const Index = () => {
     }));
 
     // Decide what we still need to translate (cache miss + non-empty source).
-    const titleNeedsTranslation = !titleCacheWithSnapshot[newLang]
-      && currentTitleSnapshot.trim()
+    const titleNeedsTranslation = !isValidCache(titleCacheWithSnapshot[newLang], currentTitleSnapshot)
+      && !!currentTitleSnapshot.trim()
       && currentTitleSnapshot !== "Untitled Story";
 
     const pageMissIndices: number[] = [];
     pagesWithSnapshot.forEach((p, i) => {
-      const cached = p.translations?.[newLang];
-      if (!cached && p.text.trim()) pageMissIndices.push(i);
+      if (!isValidCache(p.translations?.[newLang], p.text) && p.text.trim()) {
+        pageMissIndices.push(i);
+      }
     });
 
     const textsToTranslate: string[] = [];
     if (titleNeedsTranslation) textsToTranslate.push(currentTitleSnapshot);
     pageMissIndices.forEach((i) => textsToTranslate.push(pagesWithSnapshot[i].text));
 
+    console.info('[lang-switch]', {
+      from: language,
+      to: newLang,
+      titleNeedsTranslation,
+      pageMissIndices,
+      textsToTranslate: textsToTranslate.length,
+    });
+
     const applyFromCache = (titleCache: typeof titleTranslations, pgs: typeof pagesWithSnapshot) => {
-      const newTitle = titleCache[newLang] || (titleNeedsTranslation ? currentTitleSnapshot : (currentTitleSnapshot || ""));
+      const cachedTitle = titleCache[newLang];
+      const newTitle = isValidCache(cachedTitle, currentTitleSnapshot)
+        ? (cachedTitle as string)
+        : currentTitleSnapshot;
       setStoryTitle(newTitle);
       setCoverTitle(newTitle);
       setTitleTranslations(titleCache);
-      setPages(pgs.map((p) => ({
-        ...p,
-        text: p.translations?.[newLang] || (p.text.trim() ? p.text : ""),
-      })));
+      setPages(pgs.map((p) => {
+        const cachedText = p.translations?.[newLang];
+        return {
+          ...p,
+          text: isValidCache(cachedText, p.text) ? (cachedText as string) : p.text,
+        };
+      }));
       setLanguage(newLang);
     };
 
@@ -184,7 +205,17 @@ const Index = () => {
     setStoryTitle(draft.storyTitle);
     setCharacterImages(draft.characterImages);
     setBackgroundImages(draft.backgroundImages);
-    setPages(draft.pages);
+    // Clear any cached translation that mirrors the source text — those are
+    // stale entries from older flows and would prevent a real translation call.
+    const cleanedPages = draft.pages.map((p) => {
+      const tr: Record<string, string | null> = { ...(p.translations || {}) };
+      ALL_LANGS.forEach((l) => {
+        if (l === draft.language) return;
+        if (tr[l] && (tr[l] as string).trim() === p.text.trim()) tr[l] = null;
+      });
+      return { ...p, translations: tr as any };
+    });
+    setPages(cleanedPages);
     setCoverImage(draft.coverImage);
     setCoverTitle(draft.coverTitle);
     setTitlePosition(draft.titlePosition);
@@ -192,7 +223,16 @@ const Index = () => {
     setTitleColor(draft.titleColor);
     setTitleFontSize(draft.titleFontSize);
     if (draft.language) setLanguage(draft.language);
-    if (draft.titleTranslations) setTitleTranslations(draft.titleTranslations);
+    if (draft.titleTranslations) {
+      const cleanedTitle: typeof draft.titleTranslations = { ...draft.titleTranslations };
+      ALL_LANGS.forEach((l) => {
+        if (cleanedTitle[l] && (cleanedTitle[l] as string).trim() === draft.storyTitle.trim()
+            && l !== draft.language) {
+          cleanedTitle[l] = null;
+        }
+      });
+      setTitleTranslations(cleanedTitle);
+    }
     if (draft.currentStoryId) {
       setCurrentStoryId(draft.currentStoryId);
     }
@@ -254,30 +294,42 @@ const Index = () => {
       setLanguage(lang);
 
       // Hydrate title translations from DB
-      const tCache = {
+      const tCache: Record<Lang, string | null> = {
         en: (story as any).title_en ?? null,
         ar: (story as any).title_ar ?? null,
         te: (story as any).title_te ?? null,
       };
       // Ensure current lang is populated from `title` if its column is empty
       if (!tCache[lang] && story.title) tCache[lang] = story.title;
-      setTitleTranslations(tCache);
       const displayedTitle = tCache[lang] || story.title;
+      // Drop stale entries: any non-current-lang slot equal to the displayed title is bogus.
+      ALL_LANGS.forEach((l) => {
+        if (l !== lang && tCache[l] && (tCache[l] as string).trim() === displayedTitle.trim()) {
+          tCache[l] = null;
+        }
+      });
+      setTitleTranslations(tCache);
       setStoryTitle(displayedTitle);
       setCoverTitle(displayedTitle);
       
       if (loadedPages.length > 0) {
         setPages(loadedPages.map((p: any) => {
-          const pCache = {
+          const pCache: Record<Lang, string | null> = {
             en: p.text_en ?? null,
             ar: p.text_ar ?? null,
             te: p.text_te ?? null,
           };
           if (!pCache[lang] && p.text) pCache[lang] = p.text;
+          const displayedText = pCache[lang] || p.text || "";
+          ALL_LANGS.forEach((l) => {
+            if (l !== lang && pCache[l] && (pCache[l] as string).trim() === displayedText.trim()) {
+              pCache[l] = null;
+            }
+          });
           return {
             id: p.id,
             pageNumber: p.page_number,
-            text: pCache[lang] || p.text || "",
+            text: displayedText,
             image: p.image_url,
             pendingImage: null,
             translations: pCache,
