@@ -294,30 +294,42 @@ const Index = () => {
       setLanguage(lang);
 
       // Hydrate title translations from DB
-      const tCache = {
+      const tCache: Record<Lang, string | null> = {
         en: (story as any).title_en ?? null,
         ar: (story as any).title_ar ?? null,
         te: (story as any).title_te ?? null,
       };
       // Ensure current lang is populated from `title` if its column is empty
       if (!tCache[lang] && story.title) tCache[lang] = story.title;
-      setTitleTranslations(tCache);
       const displayedTitle = tCache[lang] || story.title;
+      // Drop stale entries: any non-current-lang slot equal to the displayed title is bogus.
+      ALL_LANGS.forEach((l) => {
+        if (l !== lang && tCache[l] && (tCache[l] as string).trim() === displayedTitle.trim()) {
+          tCache[l] = null;
+        }
+      });
+      setTitleTranslations(tCache);
       setStoryTitle(displayedTitle);
       setCoverTitle(displayedTitle);
       
       if (loadedPages.length > 0) {
         setPages(loadedPages.map((p: any) => {
-          const pCache = {
+          const pCache: Record<Lang, string | null> = {
             en: p.text_en ?? null,
             ar: p.text_ar ?? null,
             te: p.text_te ?? null,
           };
           if (!pCache[lang] && p.text) pCache[lang] = p.text;
+          const displayedText = pCache[lang] || p.text || "";
+          ALL_LANGS.forEach((l) => {
+            if (l !== lang && pCache[l] && (pCache[l] as string).trim() === displayedText.trim()) {
+              pCache[l] = null;
+            }
+          });
           return {
             id: p.id,
             pageNumber: p.page_number,
-            text: pCache[lang] || p.text || "",
+            text: displayedText,
             image: p.image_url,
             pendingImage: null,
             translations: pCache,
