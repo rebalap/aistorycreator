@@ -42,6 +42,7 @@ interface UseAutosaveProps {
   currentStoryId: string | null;
   user: any;
   onRestoreDraft: (draft: StoryDraft) => void;
+  isManualSaving?: boolean;
 }
 
 export type AutosaveStatus = "idle" | "saving" | "saved" | "unsaved";
