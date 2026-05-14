@@ -52,11 +52,11 @@ export const GenerateVideoDialog = ({
   const [voiceLang, setVoiceLang] = useState<string>("all");
   const [voiceId, setVoiceId] = useState<string>("");
 
-  const [speed, setSpeed] = useState(1);
+  const [speed, setSpeed] = useState(0.8);
   const [pauseDuration, setPauseDuration] = useState(2);
   const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
-  const [transition, setTransition] = useState<"cut" | "fade" | "slide">("fade");
-  const [styleTemplate, setStyleTemplate] = useState<"classic" | "playful" | "cinematic">("playful");
+  const [transition, setTransition] = useState<"cut" | "fade" | "slide_left" | "slide_right" | "slide_up" | "slide_down">("slide_left");
+  const [styleTemplate, setStyleTemplate] = useState<"classic" | "playful" | "cinematic">("classic");
   const [includeCover, setIncludeCover] = useState(true);
 
   const [submitting, setSubmitting] = useState(false);
