@@ -53,6 +53,7 @@ export const GenerateVideoDialog = ({
   const [voiceId, setVoiceId] = useState<string>("");
 
   const [speed, setSpeed] = useState(1);
+  const [pauseDuration, setPauseDuration] = useState(0);
   const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [transition, setTransition] = useState<"cut" | "fade" | "slide">("fade");
   const [styleTemplate, setStyleTemplate] = useState<"classic" | "playful" | "cinematic">("playful");
@@ -229,6 +230,7 @@ export const GenerateVideoDialog = ({
           ),
           coverTitle,
           language,
+          pauseDuration,
         },
       });
       console.log("heygen-generate-video response", { data, error });
@@ -300,6 +302,11 @@ export const GenerateVideoDialog = ({
               <div className="space-y-2">
                 <Label>Speed: {speed.toFixed(2)}×</Label>
                 <Slider min={0.5} max={2} step={0.05} value={[speed]} onValueChange={(v) => setSpeed(v[0])} />
+              </div>
+              <div className="space-y-2">
+                <Label>Pause between pages: {pauseDuration.toFixed(1)}s</Label>
+                <Slider min={0} max={5} step={0.5} value={[pauseDuration]} onValueChange={(v) => setPauseDuration(v[0])} />
+                <p className="text-xs text-muted-foreground">Silent hold on each page after narration.</p>
               </div>
               <div className="space-y-2">
                 <Label>Aspect ratio</Label>
