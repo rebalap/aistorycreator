@@ -1,28 +1,46 @@
-## Problem
+## Goal
 
-The 2-second pause is being submitted but HeyGen ignores it. Our edge function adds `pause: { duration }` to each `video_inputs[]` entry, but HeyGen v2's `video_inputs` schema has no `pause` field at the scene level — that property is silently dropped, which is why the rendered video has no gaps between pages.
+Update Generate Video defaults and add directional slide options (HeyGen `slide_left`, `slide_right`, `slide_up`, `slide_down`), defaulting to `slide_left`.
 
-## Fix
+## Changes
 
-Insert pauses as their own scenes between page scenes using HeyGen's supported **silence voice** (`voice.type = "silence"`), which is the documented way to produce a quiet gap of N seconds in v2.
+### 1. `src/components/GenerateVideoDialog.tsx` — defaults + directional slide UI
 
-### Changes in `supabase/functions/heygen-generate-video/index.ts`
+- `useState` defaults:
+  - `speed` → `0.8` (was `1`)
+  - `styleTemplate` → `"classic"` (was `"playful"`)
+  - `transition` → `"slide_left"` (was `"fade"`)
+- Widen the `transition` state type to:
+  `"cut" | "fade" | "slide_left" | "slide_right" | "slide_up" | "slide_down"`
+- Replace the single `slide` option in the Transition `Select` with four directional items:
+  - Cut
+  - Fade
+  - Slide Left  (`slide_left`)
+  - Slide Right (`slide_right`)
+  - Slide Up    (`slide_up`)
+  - Slide Down  (`slide_down`)
 
-1. Stop adding the unsupported `pause: { duration }` field to each scene.
-2. After building the `video_inputs` array, when `pauseDuration > 0`, splice a silence scene **between** every pair of consecutive scenes (not after the last one). Each silence scene reuses the previous scene's background image and the placeholder avatar, with:
-   ```
-   voice: { type: "silence", duration: pauseDuration }
-   ```
-3. Cap the total scenes (silences included) at `MAX_SCENES` (20) — if adding silences would exceed, drop trailing silences first, then trailing page scenes, so we never silently truncate page content unexpectedly. Log when we trim.
-4. Clamp `pauseDuration` to HeyGen's allowed silence range (1.0–100.0s); if the user passes 0, do not insert silences. Update the existing clamp accordingly.
+### 2. `supabase/functions/heygen-generate-video/index.ts` — accept new transition values + forward to HeyGen
 
-### Verification
+- Update the `SubmitBody.transition` type to include `slide_left | slide_right | slide_up | slide_down`.
+- Add scene-level `transition` to each non-final `video_inputs[]` entry inside `buildSceneInput` / the assembly loop:
+  ```ts
+  // attach to every scene EXCEPT the last; HeyGen applies the transition
+  // between this scene and the next.
+  if (i < scenes.length - 1) {
+    sceneInput.transition = { type: body.transition ?? "slide_left" };
+  }
+  ```
+  (Silence pause scenes get the same treatment so the slide plays into the next page.)
+- Log the chosen transition once at submit time for debugging.
 
-- Submit a test video with `pauseDuration: 2`, confirm `video_inputs.length === 2*scenes - 1` in the submit log.
-- Poll status until completed and verify the rendered video has ~2s gaps between pages.
+### Notes
 
-No frontend changes required — `GenerateVideoDialog` already sends `pauseDuration`.
+- `slide_left` is the user-confirmed HeyGen value. The other three directions follow HeyGen's standard naming (`slide_right`, `slide_up`, `slide_down`). If HeyGen ignores any of them at runtime, we'll see it in the submit log and can narrow the dropdown.
+- HeyGen historically silently ignores unknown scene-level fields (same behavior we already saw with `pause`), so the worst case is "no transition applied" — no submit failure.
+- Verification: submit a 3-page video with `slide_left`, check edge-function logs for the transition payload, confirm the rendered video shows a left slide between pages.
 
 ### Files
 
+- `src/components/GenerateVideoDialog.tsx`
 - `supabase/functions/heygen-generate-video/index.ts`

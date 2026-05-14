@@ -14,7 +14,7 @@ interface SubmitBody {
   voiceId: string;
   speed?: number;
   aspectRatio?: "16:9" | "9:16" | "1:1";
-  transition?: "cut" | "fade" | "slide";
+  transition?: "cut" | "fade" | "slide_left" | "slide_right" | "slide_up" | "slide_down";
   styleTemplate?: "classic" | "playful" | "cinematic";
   includeCover?: boolean;
   framesByPage?: Record<string, string>;
@@ -178,6 +178,8 @@ serve(async (req) => {
       offset: { x: 1, y: 1 },
     };
 
+    const transitionType = body.transition ?? "slide_left";
+
     const buildSceneInput = (s: { text: string; image: string }) => ({
       character: characterPlaceholder,
       voice: {
@@ -200,6 +202,13 @@ serve(async (req) => {
       video_inputs.push(buildSceneInput(scenes[i]));
       if (pauseDuration > 0 && i < scenes.length - 1) {
         video_inputs.push(buildSilenceInput(scenes[i].image));
+      }
+    }
+
+    // Attach transition to every scene EXCEPT the last (transition plays into the next scene).
+    if (transitionType !== "cut") {
+      for (let i = 0; i < video_inputs.length - 1; i++) {
+        video_inputs[i].transition = { type: transitionType };
       }
     }
 
@@ -232,6 +241,7 @@ serve(async (req) => {
       scenes: scenes.length,
       dimension,
       language: body.language,
+      transition: transitionType,
       payload_bytes: payloadStr.length,
       first_image: scenes[0]?.image?.slice(0, 120),
       first_text_preview: scenes[0]?.text?.slice(0, 80),
