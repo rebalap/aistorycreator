@@ -289,6 +289,7 @@ const Index = () => {
     currentStoryId,
     user,
     onRestoreDraft: handleRestoreDraft,
+    isManualSaving: isSaving,
   });
 
   const currentPage = pages[currentPageIndex];
