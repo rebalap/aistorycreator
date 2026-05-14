@@ -125,7 +125,7 @@ serve(async (req) => {
     // Load story + pages
     const { data: story, error: sErr } = await supabase
       .from("stories")
-      .select("id, user_id, title, cover_image_url, video_url")
+      .select("id, user_id, title, title_en, title_ar, title_te, cover_image_url, video_url")
       .eq("id", body.storyId)
       .single();
     if (sErr || !story) {
