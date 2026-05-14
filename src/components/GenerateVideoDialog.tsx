@@ -337,7 +337,10 @@ export const GenerateVideoDialog = ({
                   <SelectContent>
                     <SelectItem value="cut">Cut</SelectItem>
                     <SelectItem value="fade">Fade</SelectItem>
-                    <SelectItem value="slide">Slide</SelectItem>
+                    <SelectItem value="slide_left">Slide Left</SelectItem>
+                    <SelectItem value="slide_right">Slide Right</SelectItem>
+                    <SelectItem value="slide_up">Slide Up</SelectItem>
+                    <SelectItem value="slide_down">Slide Down</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
