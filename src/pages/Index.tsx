@@ -142,17 +142,46 @@ const Index = () => {
       const newTitle = isValidCache(cachedTitle, currentTitleSnapshot)
         ? (cachedTitle as string)
         : currentTitleSnapshot;
-      setStoryTitle(newTitle);
-      setCoverTitle(newTitle);
-      setTitleTranslations(titleCache);
-      setPages(pgs.map((p) => {
+      const updatedPages = pgs.map((p) => {
         const cachedText = p.translations?.[newLang];
         return {
           ...p,
           text: isValidCache(cachedText, p.text) ? (cachedText as string) : p.text,
         };
-      }));
+      });
+      setStoryTitle(newTitle);
+      setCoverTitle(newTitle);
+      setTitleTranslations(titleCache);
+      setPages(updatedPages);
       setLanguage(newLang);
+
+      // Persist immediately so a re-hydrate (or first-time video generate) sees the new language.
+      if (currentStoryId) {
+        (async () => {
+          try {
+            await updateStory(currentStoryId, {
+              title: newTitle,
+              language: newLang,
+              title_en: titleCache.en ?? null,
+              title_ar: titleCache.ar ?? null,
+              title_te: titleCache.te ?? null,
+            } as any);
+            await saveStoryPages(currentStoryId, updatedPages.map((p) => {
+              const tr = { ...(p.translations || {}), [newLang]: p.text };
+              return {
+                page_number: p.pageNumber,
+                text: p.text,
+                image_url: p.image,
+                text_en: tr.en ?? null,
+                text_ar: tr.ar ?? null,
+                text_te: tr.te ?? null,
+              };
+            }));
+          } catch (e) {
+            console.error("Persist language switch failed:", e);
+          }
+        })();
+      }
     };
 
     if (textsToTranslate.length === 0) {
