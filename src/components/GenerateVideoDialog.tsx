@@ -53,7 +53,7 @@ export const GenerateVideoDialog = ({
   const [voiceId, setVoiceId] = useState<string>("");
 
   const [speed, setSpeed] = useState(1);
-  const [pauseDuration, setPauseDuration] = useState(0);
+  const [pauseDuration, setPauseDuration] = useState(2);
   const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [transition, setTransition] = useState<"cut" | "fade" | "slide">("fade");
   const [styleTemplate, setStyleTemplate] = useState<"classic" | "playful" | "cinematic">("playful");
