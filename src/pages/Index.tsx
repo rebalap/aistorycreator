@@ -98,6 +98,12 @@ const Index = () => {
   const handleLanguageChange = async (newLang: Lang) => {
     if (newLang === language) return;
 
+    // A cache entry only counts as a real translation when it is non-empty AND
+    // distinct from the source text. Stale caches that mirror the source (from
+    // older flows) must not short-circuit the API call.
+    const isValidCache = (cached: string | null | undefined, source: string) =>
+      !!cached && cached.trim().length > 0 && cached.trim() !== source.trim();
+
     // Snapshot whatever is currently displayed into the cache for the OUTGOING language,
     // so an unsaved manual edit doesn't get lost when we switch.
     const currentTitleSnapshot = storyTitle;
@@ -108,29 +114,44 @@ const Index = () => {
     }));
 
     // Decide what we still need to translate (cache miss + non-empty source).
-    const titleNeedsTranslation = !titleCacheWithSnapshot[newLang]
-      && currentTitleSnapshot.trim()
+    const titleNeedsTranslation = !isValidCache(titleCacheWithSnapshot[newLang], currentTitleSnapshot)
+      && !!currentTitleSnapshot.trim()
       && currentTitleSnapshot !== "Untitled Story";
 
     const pageMissIndices: number[] = [];
     pagesWithSnapshot.forEach((p, i) => {
-      const cached = p.translations?.[newLang];
-      if (!cached && p.text.trim()) pageMissIndices.push(i);
+      if (!isValidCache(p.translations?.[newLang], p.text) && p.text.trim()) {
+        pageMissIndices.push(i);
+      }
     });
 
     const textsToTranslate: string[] = [];
     if (titleNeedsTranslation) textsToTranslate.push(currentTitleSnapshot);
     pageMissIndices.forEach((i) => textsToTranslate.push(pagesWithSnapshot[i].text));
 
+    console.info('[lang-switch]', {
+      from: language,
+      to: newLang,
+      titleNeedsTranslation,
+      pageMissIndices,
+      textsToTranslate: textsToTranslate.length,
+    });
+
     const applyFromCache = (titleCache: typeof titleTranslations, pgs: typeof pagesWithSnapshot) => {
-      const newTitle = titleCache[newLang] || (titleNeedsTranslation ? currentTitleSnapshot : (currentTitleSnapshot || ""));
+      const cachedTitle = titleCache[newLang];
+      const newTitle = isValidCache(cachedTitle, currentTitleSnapshot)
+        ? (cachedTitle as string)
+        : currentTitleSnapshot;
       setStoryTitle(newTitle);
       setCoverTitle(newTitle);
       setTitleTranslations(titleCache);
-      setPages(pgs.map((p) => ({
-        ...p,
-        text: p.translations?.[newLang] || (p.text.trim() ? p.text : ""),
-      })));
+      setPages(pgs.map((p) => {
+        const cachedText = p.translations?.[newLang];
+        return {
+          ...p,
+          text: isValidCache(cachedText, p.text) ? (cachedText as string) : p.text,
+        };
+      }));
       setLanguage(newLang);
     };
 
