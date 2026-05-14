@@ -14,7 +14,7 @@ interface SubmitBody {
   voiceId: string;
   speed?: number;
   aspectRatio?: "16:9" | "9:16" | "1:1";
-  transition?: "cut" | "fade" | "slide";
+  transition?: "cut" | "fade" | "slide_left" | "slide_right" | "slide_up" | "slide_down";
   styleTemplate?: "classic" | "playful" | "cinematic";
   includeCover?: boolean;
   framesByPage?: Record<string, string>;
