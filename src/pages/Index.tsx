@@ -210,6 +210,7 @@ const Index = () => {
     const cleanedPages = draft.pages.map((p) => {
       const tr: Record<string, string | null> = { ...(p.translations || {}) };
       ALL_LANGS.forEach((l) => {
+        if (l === draft.language) return;
         if (tr[l] && (tr[l] as string).trim() === p.text.trim()) tr[l] = null;
       });
       return { ...p, translations: tr as any };
