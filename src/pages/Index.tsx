@@ -205,7 +205,16 @@ const Index = () => {
     setStoryTitle(draft.storyTitle);
     setCharacterImages(draft.characterImages);
     setBackgroundImages(draft.backgroundImages);
-    setPages(draft.pages);
+    // Clear any cached translation that mirrors the source text — those are
+    // stale entries from older flows and would prevent a real translation call.
+    const cleanedPages = draft.pages.map((p) => {
+      const tr: Record<string, string | null> = { ...(p.translations || {}) };
+      ALL_LANGS.forEach((l) => {
+        if (tr[l] && (tr[l] as string).trim() === p.text.trim()) tr[l] = null;
+      });
+      return { ...p, translations: tr as any };
+    });
+    setPages(cleanedPages);
     setCoverImage(draft.coverImage);
     setCoverTitle(draft.coverTitle);
     setTitlePosition(draft.titlePosition);
@@ -213,7 +222,16 @@ const Index = () => {
     setTitleColor(draft.titleColor);
     setTitleFontSize(draft.titleFontSize);
     if (draft.language) setLanguage(draft.language);
-    if (draft.titleTranslations) setTitleTranslations(draft.titleTranslations);
+    if (draft.titleTranslations) {
+      const cleanedTitle: typeof draft.titleTranslations = { ...draft.titleTranslations };
+      ALL_LANGS.forEach((l) => {
+        if (cleanedTitle[l] && (cleanedTitle[l] as string).trim() === draft.storyTitle.trim()
+            && l !== draft.language) {
+          cleanedTitle[l] = null;
+        }
+      });
+      setTitleTranslations(cleanedTitle);
+    }
     if (draft.currentStoryId) {
       setCurrentStoryId(draft.currentStoryId);
     }
