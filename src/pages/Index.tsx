@@ -300,12 +300,12 @@ const Index = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Load story from URL param (skip if draft was already restored)
+  // Load story from URL param (skip if draft was already restored or already loaded)
   useEffect(() => {
-    if (storyId && user && !draftRestored) {
+    if (storyId && user && !draftRestored && currentStoryId !== storyId) {
       loadStory(storyId);
     }
-  }, [storyId, user, draftRestored]);
+  }, [storyId, user, draftRestored, currentStoryId]);
 
   const loadStory = async (id: string) => {
     setIsLoadingStory(true);
