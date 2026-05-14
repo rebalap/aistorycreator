@@ -170,14 +170,16 @@ serve(async (req) => {
     // off-canvas placeholder using a built-in avatar so the resulting video
     // shows only background + narration.
     const PLACEHOLDER_AVATAR_ID = "Daisy-inskirt-20220818";
-    const video_inputs = scenes.map((s) => ({
-      character: {
-        type: "avatar",
-        avatar_id: PLACEHOLDER_AVATAR_ID,
-        avatar_style: "normal",
-        scale: 0.001,
-        offset: { x: 1, y: 1 },
-      },
+    const characterPlaceholder = {
+      type: "avatar",
+      avatar_id: PLACEHOLDER_AVATAR_ID,
+      avatar_style: "normal",
+      scale: 0.001,
+      offset: { x: 1, y: 1 },
+    };
+
+    const buildSceneInput = (s: { text: string; image: string }) => ({
+      character: characterPlaceholder,
       voice: {
         type: "text",
         input_text: s.text.slice(0, 1500),
@@ -185,8 +187,37 @@ serve(async (req) => {
         speed,
       },
       background: { type: "image", url: s.image },
-      ...(pauseDuration > 0 ? { pause: { duration: pauseDuration } } : {}),
-    }));
+    });
+
+    const buildSilenceInput = (image: string) => ({
+      character: characterPlaceholder,
+      voice: { type: "silence", duration: pauseDuration },
+      background: { type: "image", url: image },
+    });
+
+    let video_inputs: any[] = [];
+    for (let i = 0; i < scenes.length; i++) {
+      video_inputs.push(buildSceneInput(scenes[i]));
+      if (pauseDuration > 0 && i < scenes.length - 1) {
+        video_inputs.push(buildSilenceInput(scenes[i].image));
+      }
+    }
+
+    // Trim to MAX_SCENES: drop trailing silence(s) first, then trailing page scenes.
+    if (video_inputs.length > MAX_SCENES) {
+      const before = video_inputs.length;
+      while (video_inputs.length > MAX_SCENES && video_inputs[video_inputs.length - 1]?.voice?.type === "silence") {
+        video_inputs.pop();
+      }
+      while (video_inputs.length > MAX_SCENES) {
+        video_inputs.pop();
+        // also drop any trailing silence left dangling
+        while (video_inputs.length > 0 && video_inputs[video_inputs.length - 1]?.voice?.type === "silence") {
+          video_inputs.pop();
+        }
+      }
+      console.log("heygen scene trim", { before, after: video_inputs.length, max: MAX_SCENES });
+    }
 
     const payload = {
       video_inputs,
