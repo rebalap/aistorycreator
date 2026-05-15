@@ -14,6 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sparkles, Download, RefreshCw, Trash2, Save, BookOpen, LogIn, LogOut, Loader2, Cloud, CloudOff, Languages, Video } from "lucide-react";
 import { GenerateVideoDialog } from "@/components/GenerateVideoDialog";
+import { GenerateVideoTemplateDialog } from "@/components/GenerateVideoTemplateDialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ChevronDown, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -70,6 +73,7 @@ const Index = () => {
   const [titleTranslations, setTitleTranslations] = useState<{ en?: string | null; ar?: string | null; te?: string | null }>({});
   const [isTranslating, setIsTranslating] = useState(false);
   const [showVideoDialog, setShowVideoDialog] = useState(false);
+  const [showVideoTemplateDialog, setShowVideoTemplateDialog] = useState(false);
   const [storyVideoUrl, setStoryVideoUrl] = useState<string | null>(null);
 
   const langName = (l: Lang) => l === 'ar' ? 'Arabic' : l === 'te' ? 'Telugu' : 'English';
@@ -1105,41 +1109,26 @@ const Index = () => {
                 placeholder="Story Title"
               />
               <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-xs text-muted-foreground">AI-powered multi-page stories</p>
-                <span className="text-xs text-muted-foreground">•</span>
-                <span className="text-xs flex items-center gap-1">
-                  {autosaveStatus === "saving" && (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
-                      <span className="text-muted-foreground">Saving...</span>
-                    </>
-                  )}
-                  {autosaveStatus === "saved" && (
-                    <>
-                      <Cloud className="w-3 h-3 text-green-500" />
-                      <span className="text-green-500">Saved</span>
-                    </>
-                  )}
-                  {autosaveStatus === "unsaved" && (
-                    <>
-                      <CloudOff className="w-3 h-3 text-muted-foreground" />
-                      <span className="text-muted-foreground">Unsaved</span>
-                    </>
-                  )}
-                  {autosaveStatus === "idle" && (
-                    <>
-                      <Cloud className="w-3 h-3 text-muted-foreground" />
-                      <span className="text-muted-foreground">Ready</span>
-                    </>
-                  )}
+                <span className="text-xs flex items-center gap-1" title={
+                  autosaveStatus === "saving" ? "Saving…" :
+                  autosaveStatus === "saved" ? "Saved" :
+                  autosaveStatus === "unsaved" ? "Unsaved changes" : "Ready"
+                }>
+                  {autosaveStatus === "saving" && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+                  {autosaveStatus === "saved" && <Cloud className="w-3 h-3 text-green-500" />}
+                  {autosaveStatus === "unsaved" && <CloudOff className="w-3 h-3 text-muted-foreground" />}
+                  {autosaveStatus === "idle" && <Cloud className="w-3 h-3 text-muted-foreground" />}
+                  <span className={`hidden xl:inline ${autosaveStatus === "saved" ? "text-green-500" : "text-muted-foreground"}`}>
+                    {autosaveStatus === "saving" ? "Saving..." : autosaveStatus === "saved" ? "Saved" : autosaveStatus === "unsaved" ? "Unsaved" : "Ready"}
+                  </span>
                 </span>
                 {totalGenerations > 0 && (
                   <>
                     <span className="text-xs text-muted-foreground">•</span>
-                    <UsageStats 
-                      totalGenerations={totalGenerations} 
-                      avgPerStory={avgPerStory} 
-                      isLoading={usageLoading} 
+                    <UsageStats
+                      totalGenerations={totalGenerations}
+                      avgPerStory={avgPerStory}
+                      isLoading={usageLoading}
                     />
                   </>
                 )}
@@ -1191,16 +1180,30 @@ const Index = () => {
               <Download className="w-4 h-4 mr-2" />
               Download All ({pages.filter((p) => p.image).length + (coverImage ? 1 : 0)})
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowVideoDialog(true)}
-              disabled={!user || !currentStoryId || pages.filter((p) => p.image && p.text.trim()).length === 0}
-              title={!user ? "Sign in" : !currentStoryId ? "Save the story first" : undefined}
-            >
-              <Video className="w-4 h-4 mr-2" />
-              Generate Video
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!user || !currentStoryId || pages.filter((p) => p.image && p.text.trim()).length === 0}
+                  title={!user ? "Sign in" : !currentStoryId ? "Save the story first" : undefined}
+                >
+                  <Video className="w-4 h-4 mr-2" />
+                  Generate Video
+                  <ChevronDown className="w-4 h-4 ml-1 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setShowVideoDialog(true)}>
+                  <Video className="w-4 h-4 mr-2" />
+                  Custom (Scenes)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowVideoTemplateDialog(true)}>
+                  <Wand2 className="w-4 h-4 mr-2" />
+                  Quick (Template)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" size="sm" onClick={handleReset}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Reset
@@ -1469,6 +1472,23 @@ const Index = () => {
       <GenerateVideoDialog
         open={showVideoDialog}
         onOpenChange={setShowVideoDialog}
+        storyId={currentStoryId}
+        hasCover={!!coverImage}
+        renderPageFrame={async (pageNumber) => {
+          const p = pages.find((pp) => pp.pageNumber === pageNumber);
+          return p ? renderPageToBlob(p) : null;
+        }}
+        renderCoverFrame={renderCoverToBlob}
+        pageNumbers={pages.filter((p) => p.image && p.text?.trim()).map((p) => p.pageNumber)}
+        pageTexts={Object.fromEntries(pages.map((p) => [p.pageNumber, p.text]))}
+        coverTitle={coverTitle || storyTitle}
+        language={language}
+        onCompleted={(url) => setStoryVideoUrl(url)}
+      />
+
+      <GenerateVideoTemplateDialog
+        open={showVideoTemplateDialog}
+        onOpenChange={setShowVideoTemplateDialog}
         storyId={currentStoryId}
         hasCover={!!coverImage}
         renderPageFrame={async (pageNumber) => {

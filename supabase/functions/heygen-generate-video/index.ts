@@ -23,6 +23,7 @@ interface SubmitBody {
   coverTitle?: string;
   language?: string;
   pauseDuration?: number;
+  mode?: "custom" | "template";
 }
 
 serve(async (req) => {
@@ -180,6 +181,98 @@ serve(async (req) => {
       scenes.push({ text, image: frame });
     }
     if (scenes.length > MAX_SCENES) scenes.length = MAX_SCENES;
+
+    // ============= TEMPLATE MODE =============
+    if (body.mode === "template") {
+      const TEMPLATE_ID = Deno.env.get("HEYGEN_TEMPLATE_ID");
+      if (!TEMPLATE_ID) {
+        return new Response(JSON.stringify({ error: "HEYGEN_TEMPLATE_ID not configured" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Discover template variables
+      const tRes = await fetch(`https://api.heygen.com/v2/template/${encodeURIComponent(TEMPLATE_ID)}`, {
+        headers: { "X-Api-Key": HEYGEN_API_KEY },
+      });
+      const tRaw = await tRes.text();
+      let tJson: any = null;
+      try { tJson = JSON.parse(tRaw); } catch {}
+      if (!tRes.ok) {
+        console.error("HeyGen template fetch failed", { status: tRes.status, body: tRaw.slice(0, 600) });
+        return new Response(JSON.stringify({ error: `HeyGen template fetch ${tRes.status}: ${tRaw.slice(0, 400)}` }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const tplVars: Record<string, any> = tJson?.data?.variables ?? {};
+      const variables: Record<string, any> = {};
+      let imageIdx = 0;
+      let textIdx = 0;
+      for (const [name, meta] of Object.entries(tplVars)) {
+        const type = (meta as any)?.type;
+        if (type === "image") {
+          const scene = scenes[imageIdx++];
+          if (scene) {
+            variables[name] = { name, type: "image", properties: { url: scene.image, asset_id: null, fit: "cover" } };
+          }
+        } else if (type === "text") {
+          const scene = scenes[textIdx++];
+          if (scene) {
+            variables[name] = { name, type: "text", properties: { content: scene.text.slice(0, 1500) } };
+          }
+        } else if (type === "voice") {
+          variables[name] = { name, type: "voice", properties: { voice_id: body.voiceId } };
+        } else if (type === "character") {
+          // leave as-is from template
+        }
+      }
+
+      const tplPayload = {
+        caption: false,
+        title: (effectiveTitle || "Story video").slice(0, 150),
+        dimension,
+        variables,
+      };
+      const tplPayloadStr = JSON.stringify(tplPayload);
+      console.log("heygen template submit", {
+        template_id: TEMPLATE_ID,
+        variable_count: Object.keys(variables).length,
+        scenes: scenes.length,
+        language: lang,
+        first_text_preview: scenes[0]?.text?.slice(0, 80),
+      });
+
+      const gRes = await fetch(`https://api.heygen.com/v2/template/${encodeURIComponent(TEMPLATE_ID)}/generate`, {
+        method: "POST",
+        headers: { "X-Api-Key": HEYGEN_API_KEY, "Content-Type": "application/json" },
+        body: tplPayloadStr,
+      });
+      const gRaw = await gRes.text();
+      const gTrace = gRes.headers.get("x-trace-id") || gRes.headers.get("x-request-id");
+      let gJson: any = null;
+      try { gJson = JSON.parse(gRaw); } catch {}
+      if (!gRes.ok || !gJson?.data?.video_id) {
+        console.error("HeyGen template submit error", { status: gRes.status, body: gRaw.slice(0, 800), gTrace });
+        const msg = gJson?.error?.message || gJson?.message || gRaw || "Failed to submit template video";
+        return new Response(JSON.stringify({
+          error: `HeyGen ${gRes.status}: ${msg}`,
+          heygen_status: gRes.status,
+          heygen_body: gJson ?? gRaw,
+          trace_id: gTrace,
+        }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      await supabase.from("generation_logs").insert({
+        user_id: user.id,
+        story_id: body.storyId,
+        generation_type: "video",
+      });
+
+      return new Response(JSON.stringify({ video_id: gJson.data.video_id, status: "pending" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    // ============= /TEMPLATE MODE =============
 
     // Avatar removed: HeyGen v2 requires a character, so we render a tiny
     // off-canvas placeholder using a built-in avatar so the resulting video
