@@ -1469,22 +1469,6 @@ const Index = () => {
         onCompleted={(url) => setStoryVideoUrl(url)}
       />
 
-      <GenerateVideoTemplateDialog
-        open={showVideoTemplateDialog}
-        onOpenChange={setShowVideoTemplateDialog}
-        storyId={currentStoryId}
-        hasCover={!!coverImage}
-        renderPageFrame={async (pageNumber) => {
-          const p = pages.find((pp) => pp.pageNumber === pageNumber);
-          return p ? renderPageToBlob(p) : null;
-        }}
-        renderCoverFrame={renderCoverToBlob}
-        pageNumbers={pages.filter((p) => p.image && p.text?.trim()).map((p) => p.pageNumber)}
-        pageTexts={Object.fromEntries(pages.map((p) => [p.pageNumber, p.text]))}
-        coverTitle={coverTitle || storyTitle}
-        language={language}
-        onCompleted={(url) => setStoryVideoUrl(url)}
-      />
 
       {storyVideoUrl && (
         <div className="fixed bottom-4 right-4 z-40 w-80 bg-card border rounded-lg shadow-xl p-3 space-y-2">
