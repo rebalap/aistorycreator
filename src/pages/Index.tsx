@@ -1195,16 +1195,30 @@ const Index = () => {
               <Download className="w-4 h-4 mr-2" />
               Download All ({pages.filter((p) => p.image).length + (coverImage ? 1 : 0)})
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowVideoDialog(true)}
-              disabled={!user || !currentStoryId || pages.filter((p) => p.image && p.text.trim()).length === 0}
-              title={!user ? "Sign in" : !currentStoryId ? "Save the story first" : undefined}
-            >
-              <Video className="w-4 h-4 mr-2" />
-              Generate Video
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!user || !currentStoryId || pages.filter((p) => p.image && p.text.trim()).length === 0}
+                  title={!user ? "Sign in" : !currentStoryId ? "Save the story first" : undefined}
+                >
+                  <Video className="w-4 h-4 mr-2" />
+                  Generate Video
+                  <ChevronDown className="w-4 h-4 ml-1 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setShowVideoDialog(true)}>
+                  <Video className="w-4 h-4 mr-2" />
+                  Custom (Scenes)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowVideoTemplateDialog(true)}>
+                  <Wand2 className="w-4 h-4 mr-2" />
+                  Quick (Template)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" size="sm" onClick={handleReset}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Reset
