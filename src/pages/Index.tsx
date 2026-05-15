@@ -1109,41 +1109,26 @@ const Index = () => {
                 placeholder="Story Title"
               />
               <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-xs text-muted-foreground">AI-powered multi-page stories</p>
-                <span className="text-xs text-muted-foreground">•</span>
-                <span className="text-xs flex items-center gap-1">
-                  {autosaveStatus === "saving" && (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
-                      <span className="text-muted-foreground">Saving...</span>
-                    </>
-                  )}
-                  {autosaveStatus === "saved" && (
-                    <>
-                      <Cloud className="w-3 h-3 text-green-500" />
-                      <span className="text-green-500">Saved</span>
-                    </>
-                  )}
-                  {autosaveStatus === "unsaved" && (
-                    <>
-                      <CloudOff className="w-3 h-3 text-muted-foreground" />
-                      <span className="text-muted-foreground">Unsaved</span>
-                    </>
-                  )}
-                  {autosaveStatus === "idle" && (
-                    <>
-                      <Cloud className="w-3 h-3 text-muted-foreground" />
-                      <span className="text-muted-foreground">Ready</span>
-                    </>
-                  )}
+                <span className="text-xs flex items-center gap-1" title={
+                  autosaveStatus === "saving" ? "Saving…" :
+                  autosaveStatus === "saved" ? "Saved" :
+                  autosaveStatus === "unsaved" ? "Unsaved changes" : "Ready"
+                }>
+                  {autosaveStatus === "saving" && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+                  {autosaveStatus === "saved" && <Cloud className="w-3 h-3 text-green-500" />}
+                  {autosaveStatus === "unsaved" && <CloudOff className="w-3 h-3 text-muted-foreground" />}
+                  {autosaveStatus === "idle" && <Cloud className="w-3 h-3 text-muted-foreground" />}
+                  <span className={`hidden xl:inline ${autosaveStatus === "saved" ? "text-green-500" : "text-muted-foreground"}`}>
+                    {autosaveStatus === "saving" ? "Saving..." : autosaveStatus === "saved" ? "Saved" : autosaveStatus === "unsaved" ? "Unsaved" : "Ready"}
+                  </span>
                 </span>
                 {totalGenerations > 0 && (
                   <>
                     <span className="text-xs text-muted-foreground">•</span>
-                    <UsageStats 
-                      totalGenerations={totalGenerations} 
-                      avgPerStory={avgPerStory} 
-                      isLoading={usageLoading} 
+                    <UsageStats
+                      totalGenerations={totalGenerations}
+                      avgPerStory={avgPerStory}
+                      isLoading={usageLoading}
                     />
                   </>
                 )}
