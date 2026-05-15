@@ -14,9 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sparkles, Download, RefreshCw, Trash2, Save, BookOpen, LogIn, LogOut, Loader2, Cloud, CloudOff, Languages, Video } from "lucide-react";
 import { GenerateVideoDialog } from "@/components/GenerateVideoDialog";
-import { GenerateVideoTemplateDialog } from "@/components/GenerateVideoTemplateDialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ChevronDown, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -73,7 +70,7 @@ const Index = () => {
   const [titleTranslations, setTitleTranslations] = useState<{ en?: string | null; ar?: string | null; te?: string | null }>({});
   const [isTranslating, setIsTranslating] = useState(false);
   const [showVideoDialog, setShowVideoDialog] = useState(false);
-  const [showVideoTemplateDialog, setShowVideoTemplateDialog] = useState(false);
+  
   const [storyVideoUrl, setStoryVideoUrl] = useState<string | null>(null);
 
   const langName = (l: Lang) => l === 'ar' ? 'Arabic' : l === 'te' ? 'Telugu' : 'English';
@@ -1180,30 +1177,16 @@ const Index = () => {
               <Download className="w-4 h-4 mr-2" />
               Download All ({pages.filter((p) => p.image).length + (coverImage ? 1 : 0)})
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!user || !currentStoryId || pages.filter((p) => p.image && p.text.trim()).length === 0}
-                  title={!user ? "Sign in" : !currentStoryId ? "Save the story first" : undefined}
-                >
-                  <Video className="w-4 h-4 mr-2" />
-                  Generate Video
-                  <ChevronDown className="w-4 h-4 ml-1 opacity-70" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setShowVideoDialog(true)}>
-                  <Video className="w-4 h-4 mr-2" />
-                  Custom (Scenes)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setShowVideoTemplateDialog(true)}>
-                  <Wand2 className="w-4 h-4 mr-2" />
-                  Quick (Template)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowVideoDialog(true)}
+              disabled={!user || !currentStoryId || pages.filter((p) => p.image && p.text.trim()).length === 0}
+              title={!user ? "Sign in" : !currentStoryId ? "Save the story first" : undefined}
+            >
+              <Video className="w-4 h-4 mr-2" />
+              Generate Video
+            </Button>
             <Button variant="outline" size="sm" onClick={handleReset}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Reset
