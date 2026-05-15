@@ -23,6 +23,7 @@ interface SubmitBody {
   coverTitle?: string;
   language?: string;
   pauseDuration?: number;
+  mode?: "custom" | "template";
 }
 
 serve(async (req) => {
