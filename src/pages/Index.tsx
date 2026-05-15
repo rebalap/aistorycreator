@@ -73,6 +73,7 @@ const Index = () => {
   const [titleTranslations, setTitleTranslations] = useState<{ en?: string | null; ar?: string | null; te?: string | null }>({});
   const [isTranslating, setIsTranslating] = useState(false);
   const [showVideoDialog, setShowVideoDialog] = useState(false);
+  const [showVideoTemplateDialog, setShowVideoTemplateDialog] = useState(false);
   const [storyVideoUrl, setStoryVideoUrl] = useState<string | null>(null);
 
   const langName = (l: Lang) => l === 'ar' ? 'Arabic' : l === 'te' ? 'Telugu' : 'English';
