@@ -1,73 +1,71 @@
-## Problem 1 — "Save failed" toast appears even though the save succeeded
+## Goals
 
-`useStories.updateStory` and `useStories.saveStoryPages` each fire their own `toast.error(...)` on failure but still let `handleSaveStory` continue and fire `toast.success("Story saved!")`. So the user sees a misleading "save failed" first.
+1. Cleanup the top action bar — keep all current buttons but reduce visual clutter (icon-first, clearer hierarchy, less text noise).
+2. Add a second video generation path that uses HeyGen's Template API with a fixed template ID stored as a Lovable secret (`HEYGEN_TEMPLATE_ID`).
 
-The most likely root cause of the inner failure when in Telugu is a **race with the 30s database autosave**: switching language triggers state changes, the autosave's `setInterval` may fire `saveToDatabase` (which does a `DELETE` then `INSERT` on `story_pages`) at the same moment the manual Save runs the same delete+insert, and one of the two `.single()` updates returns no row / a transient `57014` timeout (already visible in your console logs). The save still ends up persisted because the other write wins.
+---
 
-### Fixes
+## 1. Top bar cleanup (visual only — no buttons removed)
 
-1. **Stop double-toasting in `useStories.tsx`.**
-   - Remove `toast.error("Failed to update story")` from `updateStory`.
-   - Remove `toast.error("Failed to save pages")` from `saveStoryPages`.
-   - Re-throw the real error so the caller can decide. `handleSaveStory`, `saveToDatabase` (autosave) already have `try/catch` blocks.
+File: `src/pages/Index.tsx` (header block ~lines 1094–1222)
 
-2. **Surface the real error in `handleSaveStory` (`src/pages/Index.tsx`).**
-   - Replace the generic `toast.error("Failed to save story")` with `toast.error(error?.message || "Failed to save story", { duration: 8000 })` so we can see the underlying Postgres error if it ever returns.
+Changes:
+- Status chip ("Saving / Saved / Unsaved / Ready") becomes a small pill next to the title with just an icon + tooltip on hover (no text on desktop). Removes the long "AI-powered multi-page stories • Saved • Usage…" subtitle clutter; keep tagline only on first-load empty state.
+- Action buttons → consistent icon-only on `lg` breakpoint with tooltips, label text shown only on `xl`. Order: **My Shelf · Save · Download All · Generate Video ▾ · Reset · Sign out**.
+- "Download All (N)" — drop the count from the label, show as a small badge on the icon.
+- Convert **Generate Video** into a split/dropdown button with two items:
+  - **Custom (Scenes)** — current flow, opens existing `GenerateVideoDialog`.
+  - **Quick (Template)** — new flow, opens a new lightweight `GenerateVideoTemplateDialog`.
+- Group `Reset` + `Sign out` visually (separator) so destructive/account actions sit apart from creation actions.
+- Use `shadcn/ui` `DropdownMenu` for the Generate Video split, and `Tooltip` for icon-only buttons. No new colors — use existing semantic tokens.
 
-3. **Prevent the autosave race during a manual save.**
-   - Add an `isManualSavingRef` (or pass `isSaving` into `useAutosave`) and skip the 30s `saveToDatabase` tick whenever a manual save is in flight.
-   - In `handleSaveStory`, set the flag before `updateStory`, clear it in `finally`.
+No business logic changes in this section. Save / autosave / download flows stay identical.
 
-## Problem 2 — Video generates in English on the first try, and UI snaps back to English when Generate is clicked
+---
 
-Two independent bugs combine:
+## 2. New "Generate via Template" flow
 
-### 2a. Edge function silently falls back to the English DB rows
+### Secret
+Request `HEYGEN_TEMPLATE_ID` via `add_secret` (user pastes their template ID from HeyGen). Edge function reads it from `Deno.env`.
 
-In `supabase/functions/heygen-generate-video/index.ts`:
+### New dialog: `src/components/GenerateVideoTemplateDialog.tsx`
+Minimal — Template flow doesn't need scene-by-scene config:
+- Voice picker (reuse `heygen-list-voices`, same filtering by app language).
+- Speed slider (default 0.8×).
+- Aspect ratio (read-only, defined by the template — show a note "Defined by template").
+- Same frame-prep pipeline (`renderPageFrame` / `renderCoverFrame`, upload to `story-images/<uid>/video-frames/...`) so we can pass per-scene image URLs as template variables.
+- Submit → `supabase.functions.invoke('heygen-generate-video', { body: { mode: 'template', ... } })`.
+- Reuse the existing `pollStatus` logic.
 
-```ts
-const text = pageTexts[String(p.page_number)]?.trim() || p.text;
-const effectiveTitle = (body.coverTitle?.trim() || story.title || "").trim();
-```
+### Edge function: `supabase/functions/heygen-generate-video/index.ts`
+Add a branch on `body.mode`:
+- `mode === 'template'` (new):
+  - Read `HEYGEN_TEMPLATE_ID` from env. 400 if missing.
+  - Fetch template details: `GET https://api.heygen.com/v2/template/{template_id}` to discover variable names/types.
+  - Build `variables` payload by mapping our scenes onto template variables in order:
+    - For each `image` variable → next page/cover frame URL.
+    - For each `text` variable → next page text (language-aware, same `text_en/_ar/_te` fallback we already added).
+    - For each `voice` variable → selected `voiceId`.
+  - POST `https://api.heygen.com/v2/template/{template_id}/generate` with `{ caption: false, title, variables, dimension? }`.
+  - Persist `heygen_video_id` on `stories` (existing column) — same status polling path works because both endpoints return `video_id` and the existing `action: 'status'` branch hits `/v1/video_status.get`.
+- `mode === 'custom'` (default, existing): unchanged.
 
-`p.text` and `story.title` are whatever was last saved to the DB. If the user switched to Telugu but hasn't saved yet (the manual Save races, or the 30s autosave hasn't fired), the DB still holds English. Any single missing/empty client-supplied field flips that page back to English. Cover title in particular reads `story.title` not `story.title_te`.
+Keep the language-aware fallback we added (`text_te`/`title_te` etc.) for the template branch too.
 
-Fix: send the language explicitly (already done — `body.language`), and on the server, prefer the client-supplied texts and only fall back to the matching language column (`text_te` / `title_te`), never to `text` / `title` when a non-English language is requested.
+### Reference
+HeyGen Template API: https://developers.heygen.com/template-api  (`GET /v2/template/{id}`, `POST /v2/template/{id}/generate`).
 
-```ts
-const langKey = body.language === 'ar' ? 'text_ar' : body.language === 'te' ? 'text_te' : 'text_en';
-const text = pageTexts[String(p.page_number)]?.trim()
-          || (p as any)[langKey]?.trim()
-          || p.text;   // last-resort English
-```
+---
 
-Same treatment for the cover title (`title_te` / `title_ar` / `title_en` columns on `stories`).
+## Files touched
 
-Also log `body.language` and the first scene's chosen text source so we can confirm.
-
-### 2b. UI reverts to English after clicking Generate
-
-The only places that call `setLanguage('en')` are `handleReset` and `loadStory` (via the `[storyId, user, draftRestored]` URL effect). The most likely trigger is the URL effect re-running after a `user` reference change during the long async Generate, which causes `loadStory` to re-hydrate from the DB — and the DB still has `language='en'` because nothing has persisted Telugu yet.
-
-Fix: persist the language switch immediately so a re-hydrate is harmless.
-
-- In `handleLanguageChange`, after `applyFromCache`, if `currentStoryId` exists, fire-and-forget `updateStory(currentStoryId, { language: newLang, title_en, title_ar, title_te, title })` plus `saveStoryPages(...)` with the per-language columns. This is the same payload the manual save sends.
-- Show a tiny inline "saving translation…" indicator while it runs (reuse autosave status).
-
-This also guarantees the edge function's DB fallback (Problem 2a) never reads stale English.
-
-Belt-and-braces: in the URL effect, don't re-run `loadStory` if `currentStoryId === storyId` (avoid re-hydration when only `user` reference changed).
-
-## Files
-
-- `src/hooks/useStories.tsx` — remove inner error toasts; re-throw.
-- `src/pages/Index.tsx` — surface real save error; persist language on switch; guard URL effect; pass manual-saving flag to autosave.
-- `src/hooks/useAutosave.tsx` — accept and respect `isManualSaving` flag in the 30s tick.
-- `supabase/functions/heygen-generate-video/index.ts` — language-aware text/title fallback; richer logging.
+- `src/pages/Index.tsx` — header restyle; split-button for Generate Video; mount new template dialog.
+- `src/components/GenerateVideoTemplateDialog.tsx` — new, ~150 lines, mirrors the minimal subset of `GenerateVideoDialog`.
+- `supabase/functions/heygen-generate-video/index.ts` — add `mode: 'template'` branch + template fetch + variables mapper.
+- Secret: add `HEYGEN_TEMPLATE_ID`.
 
 ## Verification
 
-- Switch story to Telugu → reload page: language stays Telugu (DB now has it).
-- Click Save in Telugu: only one toast, "Story saved!" (no false "save failed").
-- Generate video in Telugu first try: edge log shows `language: "te"` and Telugu first-text preview; rendered video narrates Telugu; UI stays in Telugu after clicking Generate.
+- Top bar: at `lg` width buttons are icon-only with working tooltips; nothing wraps to two rows; Generate Video dropdown shows both items.
+- Quick (Template) flow: with `HEYGEN_TEMPLATE_ID` set, clicking Quick → picks voice → submits → edge log shows `mode: template`, template variables populated, `video_id` returned, polling completes, `video_url` saved on the story (same as Custom flow).
+- Switching to Telugu and immediately using Quick still produces Telugu narration (language-aware fallback path is shared).
