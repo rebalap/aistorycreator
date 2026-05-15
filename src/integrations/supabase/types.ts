@@ -173,7 +173,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_story_page_counts: {
+        Args: { story_ids: string[] }
+        Returns: {
+          count: number
+          story_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

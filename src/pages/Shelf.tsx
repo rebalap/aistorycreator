@@ -28,14 +28,11 @@ const Shelf = () => {
       const allIds = [...stories, ...communityStories].map(s => s.id);
       if (allIds.length === 0) return;
 
-      const { data } = await supabase
-        .from("story_pages")
-        .select("story_id")
-        .in("story_id", allIds);
+      const { data } = await supabase.rpc("get_story_page_counts", { story_ids: allIds });
 
       const counts: Record<string, number> = {};
       (data || []).forEach((row: any) => {
-        counts[row.story_id] = (counts[row.story_id] || 0) + 1;
+        counts[row.story_id] = Number(row.count) || 0;
       });
       setPageCounts(counts);
     };

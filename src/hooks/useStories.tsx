@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { toast } from "sonner";
@@ -19,9 +20,9 @@ export interface Story {
   user_id: string;
   title: string;
   cover_image_url: string | null;
-  character_image_url: string | null;
+  character_image_url?: string | null;
   language?: string;
-  background_image_urls: string[] | null;
+  background_image_urls?: string[] | null;
   title_en?: string | null;
   title_ar?: string | null;
   title_te?: string | null;
@@ -31,104 +32,111 @@ export interface Story {
   creator_email?: string;
 }
 
+// Lightweight columns needed to render shelf cards
+const SHELF_COLUMNS = "id, user_id, title, cover_image_url, updated_at, created_at, language";
+
+interface ShelfData {
+  own: Story[];
+  community: Story[];
+}
+
 export const useStories = () => {
   const { user } = useAuth();
-  const [stories, setStories] = useState<Story[]>([]);
-  const [communityStories, setCommunityStories] = useState<Story[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchStories = async (attempt = 0): Promise<void> => {
-    if (!user) {
-      setStories([]);
-      setCommunityStories([]);
-      setLoading(false);
-      setError(null);
-      return;
+  const queryKey = ["shelf-stories", user?.id];
+
+  const fetchShelf = async (): Promise<ShelfData> => {
+    if (!user) return { own: [], community: [] };
+
+    const [ownResult, allResult] = await Promise.all([
+      supabase
+        .from("stories")
+        .select(SHELF_COLUMNS)
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("stories")
+        .select(SHELF_COLUMNS)
+        .neq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(100),
+    ]);
+
+    if (ownResult.error) throw ownResult.error;
+    if (allResult.error) throw allResult.error;
+
+    const own = (ownResult.data || []) as Story[];
+    const community = (allResult.data || []) as Story[];
+
+    // Only fetch profiles for the user_ids we actually display
+    const userIds = Array.from(
+      new Set([...own.map(s => s.user_id), ...community.map(s => s.user_id)])
+    );
+
+    const emailMap: Record<string, string> = {};
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, email")
+        .in("id", userIds);
+      (profiles || []).forEach((p: any) => { emailMap[p.id] = p.email; });
     }
 
-    try {
-      setError(null);
-      const [ownResult, allResult, profilesResult] = await Promise.all([
-        supabase
-          .from("stories")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("updated_at", { ascending: false }),
-        supabase
-          .from("stories")
-          .select("*")
-          .neq("user_id", user.id)
-          .order("updated_at", { ascending: false })
-          .limit(100),
-        supabase
-          .from("profiles")
-          .select("id, email"),
-      ]);
+    const enrich = (list: Story[]) =>
+      list.map(s => ({ ...s, creator_email: emailMap[s.user_id] || undefined }));
 
-      if (ownResult.error) {
-        if (attempt < 3 && (ownResult.error.code === "PGRST002" || ownResult.error.message?.includes("503"))) {
-          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
-          return fetchStories(attempt + 1);
-        }
-        throw ownResult.error;
-      }
-      if (allResult.error) throw allResult.error;
-
-      const emailMap: Record<string, string> = {};
-      (profilesResult.data || []).forEach((p: any) => { emailMap[p.id] = p.email; });
-
-      const enrichWithEmail = (stories: any[]) =>
-        stories.map(s => ({ ...s, creator_email: emailMap[s.user_id] || undefined }));
-
-      setStories(enrichWithEmail(ownResult.data || []));
-      setCommunityStories(enrichWithEmail(allResult.data || []));
-    } catch (err: any) {
-      console.error("Error fetching stories:", err);
-      setError("Unable to load stories. Please check your connection and try again.");
-    } finally {
-      setLoading(false);
-    }
+    return { own: enrich(own), community: enrich(community) };
   };
 
-  const retryFetch = () => {
-    setLoading(true);
-    setError(null);
-    fetchStories();
-  };
+  const query = useQuery<ShelfData>({
+    queryKey,
+    queryFn: fetchShelf,
+    enabled: !!user,
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+  });
 
-  useEffect(() => {
-    fetchStories();
-  }, [user]);
-
-  // Real-time subscription for concurrent multi-device sync
+  // Realtime: merge partial updates into the cached shelf data
   useEffect(() => {
     if (!user) return;
 
     const channel = supabase
       .channel(`stories-realtime-${user.id}-${Math.random().toString(36).slice(2)}`)
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: '*',
-          schema: 'public',
-          table: 'stories',
-          filter: `user_id=eq.${user.id}`
+          event: "*",
+          schema: "public",
+          table: "stories",
+          filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          if (payload.eventType === 'INSERT') {
-            setStories(prev => {
-              const exists = prev.some(s => s.id === (payload.new as Story).id);
-              if (exists) return prev;
-              return [payload.new as Story, ...prev];
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            setStories(prev => prev.map(s => 
-              s.id === (payload.new as Story).id ? payload.new as Story : s
-            ));
-          } else if (payload.eventType === 'DELETE') {
-            setStories(prev => prev.filter(s => s.id !== (payload.old as Story).id));
-          }
+          queryClient.setQueryData<ShelfData>(queryKey, (prev) => {
+            const current = prev ?? { own: [], community: [] };
+            if (payload.eventType === "INSERT") {
+              const incoming = payload.new as Story;
+              if (current.own.some(s => s.id === incoming.id)) return current;
+              return { ...current, own: [incoming, ...current.own] };
+            }
+            if (payload.eventType === "UPDATE") {
+              const incoming = payload.new as Story;
+              return {
+                ...current,
+                own: current.own.map(s =>
+                  s.id === incoming.id ? { ...s, ...incoming } : s
+                ),
+              };
+            }
+            if (payload.eventType === "DELETE") {
+              const removed = payload.old as Story;
+              return {
+                ...current,
+                own: current.own.filter(s => s.id !== removed.id),
+              };
+            }
+            return current;
+          });
         }
       )
       .subscribe();
@@ -136,9 +144,24 @@ export const useStories = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
-  const createStory = async (title: string, characterImageUrl?: string, backgroundImageUrls?: string[], storyLanguage?: string) => {
+  const stories = query.data?.own ?? [];
+  const communityStories = query.data?.community ?? [];
+
+  const setShelf = (updater: (prev: ShelfData) => ShelfData) => {
+    queryClient.setQueryData<ShelfData>(queryKey, (prev) =>
+      updater(prev ?? { own: [], community: [] })
+    );
+  };
+
+  const createStory = async (
+    title: string,
+    characterImageUrl?: string,
+    backgroundImageUrls?: string[],
+    storyLanguage?: string
+  ) => {
     if (!user) return null;
 
     try {
@@ -149,14 +172,13 @@ export const useStories = () => {
           title,
           character_image_url: characterImageUrl || null,
           background_image_urls: backgroundImageUrls || null,
-          language: storyLanguage || 'en',
+          language: storyLanguage || "en",
         } as any)
         .select()
         .single();
 
       if (error) throw error;
-      
-      setStories(prev => [data, ...prev]);
+      setShelf(prev => ({ ...prev, own: [data as Story, ...prev.own] }));
       return data;
     } catch (error: any) {
       console.error("Error creating story:", error);
@@ -178,20 +200,22 @@ export const useStories = () => {
       throw error;
     }
 
-    setStories(prev => prev.map(s => s.id === storyId ? data : s));
+    setShelf(prev => ({
+      ...prev,
+      own: prev.own.map(s => (s.id === storyId ? { ...s, ...(data as Story) } : s)),
+    }));
     return data;
   };
 
   const deleteStory = async (storyId: string) => {
     try {
-      const { error } = await supabase
-        .from("stories")
-        .delete()
-        .eq("id", storyId);
-
+      const { error } = await supabase.from("stories").delete().eq("id", storyId);
       if (error) throw error;
-      
-      setStories(prev => prev.filter(s => s.id !== storyId));
+
+      setShelf(prev => ({
+        ...prev,
+        own: prev.own.filter(s => s.id !== storyId),
+      }));
       toast.success("Story deleted");
       return true;
     } catch (error: any) {
@@ -230,14 +254,12 @@ export const useStories = () => {
       text_te?: string | null;
     }[]
   ) => {
-    // Delete existing pages
     const { error: delErr } = await supabase.from("story_pages").delete().eq("story_id", storyId);
     if (delErr) {
       console.error("Error deleting old pages:", delErr);
       throw delErr;
     }
 
-    // Insert new pages
     if (pages.length > 0) {
       const { error } = await supabase
         .from("story_pages")
@@ -255,10 +277,10 @@ export const useStories = () => {
   return {
     stories,
     communityStories,
-    loading,
-    error,
-    fetchStories,
-    retryFetch,
+    loading: query.isLoading,
+    error: query.error ? "Unable to load stories. Please check your connection and try again." : null,
+    fetchStories: () => query.refetch(),
+    retryFetch: () => query.refetch(),
     createStory,
     updateStory,
     deleteStory,
